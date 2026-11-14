@@ -77,6 +77,33 @@ pub fn tray_toggle_label(s: &Status) -> &'static str {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutostartAction {
+    None,
+    Enable,
+    Disable,
+}
+
+/// Decide what to do about "Start with Windows". `currently_enabled` is None
+/// when the state could not be read; then only enabling is attempted (a
+/// disable of an unset entry may error and there is nothing to undo).
+pub fn autostart_action(currently_enabled: Option<bool>, wanted: bool) -> AutostartAction {
+    match (currently_enabled, wanted) {
+        (Some(c), w) if c == w => AutostartAction::None,
+        (_, true) => AutostartAction::Enable,
+        (Some(_), false) => AutostartAction::Disable,
+        (None, false) => AutostartAction::None,
+    }
+}
+
+/// Result of save_settings once settings are saved and applied: an autostart
+/// failure is reported, saying the settings themselves were kept.
+pub fn save_outcome(autostart: Result<(), String>) -> Result<(), String> {
+    autostart.map_err(|e| {
+        format!("Settings were saved, but 'Start with Windows' could not be changed: {e}")
+    })
+}
+
 /// Start the server with the current settings (no-op if already running).
 pub fn start(state: &AppState) {
     let args = settings::to_args(&lock(&state.settings));
@@ -105,22 +132,23 @@ pub fn save_settings(
     s.validate()?;
     settings::save(&settings::settings_path(&app), &s)
         .map_err(|e| format!("could not save settings: {e}"))?;
-    let autolaunch = app.autolaunch();
-    if s.autostart {
-        autolaunch
-            .enable()
-            .map_err(|e| format!("could not enable autostart: {e}"))?;
-    } else {
-        autolaunch
-            .disable()
-            .map_err(|e| format!("could not disable autostart: {e}"))?;
-    }
+    let want_autostart = s.autostart;
     let args = settings::to_args(&s);
     *lock(&state.settings) = s;
     if state.supervisor.status() != Status::Stopped {
         state.supervisor.restart(args);
     }
-    Ok(())
+    // Autostart last: its failure must not undo or skip the saved settings.
+    save_outcome(apply_autostart(&app, want_autostart))
+}
+
+fn apply_autostart(app: &AppHandle, wanted: bool) -> Result<(), String> {
+    let autolaunch = app.autolaunch();
+    match autostart_action(autolaunch.is_enabled().ok(), wanted) {
+        AutostartAction::None => Ok(()),
+        AutostartAction::Enable => autolaunch.enable().map_err(|e| e.to_string()),
+        AutostartAction::Disable => autolaunch.disable().map_err(|e| e.to_string()),
+    }
 }
 
 #[tauri::command]
@@ -234,5 +262,25 @@ mod tests {
         assert_eq!(tray_toggle_label(&Status::Starting), "Stop");
         assert_eq!(tray_toggle_label(&Status::Waiting), "Stop");
         assert_eq!(tray_toggle_label(&Status::Connected { device: "d".into() }), "Stop");
+    }
+
+    #[test]
+    fn autostart_action_all_combinations() {
+        use AutostartAction::*;
+        assert_eq!(autostart_action(Some(true), true), None);
+        assert_eq!(autostart_action(Some(false), false), None);
+        assert_eq!(autostart_action(Some(false), true), Enable);
+        assert_eq!(autostart_action(Some(true), false), Disable);
+        assert_eq!(autostart_action(Option::None, true), Enable);
+        assert_eq!(autostart_action(Option::None, false), None);
+    }
+
+    #[test]
+    fn save_outcome_ok_and_error_message() {
+        assert_eq!(save_outcome(Ok(())), Ok(()));
+        let e = save_outcome(Err("access denied".into())).unwrap_err();
+        assert!(e.contains("Settings were saved"));
+        assert!(e.contains("Start with Windows"));
+        assert!(e.contains("access denied"));
     }
 }

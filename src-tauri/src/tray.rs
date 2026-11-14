@@ -75,14 +75,20 @@ pub fn build(app: &AppHandle, initial: &Status) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Refresh the status line, toggle label and tooltip.
+/// Refresh the status line, toggle label and tooltip. Never blocks the
+/// caller: the work is posted to the main thread (the caller may be the
+/// supervisor's dispatcher thread while the main thread is stopping it).
 pub fn update(app: &AppHandle, s: &Status) {
     let text = status_text(s);
-    if let Some(items) = app.try_state::<TrayItems>() {
-        let _ = items.status.set_text(&text);
-        let _ = items.toggle.set_text(tray_toggle_label(s));
-    }
-    if let Some(tray) = app.tray_by_id(TRAY_ID) {
-        let _ = tray.set_tooltip(Some(text));
-    }
+    let label = tray_toggle_label(s);
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        if let Some(items) = handle.try_state::<TrayItems>() {
+            let _ = items.status.set_text(&text);
+            let _ = items.toggle.set_text(label);
+        }
+        if let Some(tray) = handle.tray_by_id(TRAY_ID) {
+            let _ = tray.set_tooltip(Some(text));
+        }
+    });
 }
