@@ -41,10 +41,10 @@ mod tests {
 
     #[test]
     fn release_path_points_into_resource_dir() {
-        let p = release_path(Path::new("C:/Program Files/AirPlay Receiver"));
+        let p = release_path(Path::new("C:/Program Files/Castaway"));
         assert_eq!(
             p,
-            Path::new("C:/Program Files/AirPlay Receiver/resources/uxplay/uxplay.exe")
+            Path::new("C:/Program Files/Castaway/resources/uxplay/uxplay.exe")
         );
     }
 }

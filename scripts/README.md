@@ -2,8 +2,8 @@
 
 ## build-uxplay.ps1 / build-uxplay.sh
 
-Builds the pinned UxPlay tag (`$UxPlayTag` in `build-uxplay.ps1`, currently `v1.73.7`, the
-newest tag on https://github.com/FDH2/UxPlay as of 2026-11-15) under MSYS2 UCRT64, then
+Builds the pinned UxPlay commit (`$UxPlayRef` in `build-uxplay.ps1`, currently master commit
+`05b0275cb1b726592700e47a6e0307544b3d3a52`, pre-1.74) under MSYS2 UCRT64, then
 vendors `uxplay.exe`, the non-system DLLs it needs (found by walking `objdump -p` imports),
 and a curated set of GStreamer plugins into `src-tauri/resources/uxplay/`
 (`gst-plugins/` subfolder). Only `VERSION.txt` there is committed.

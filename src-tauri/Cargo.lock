@@ -18,17 +18,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "airplay-receiver"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-opener",
-]
-
-[[package]]
 name = "alloc-no-stdlib"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -435,6 +424,17 @@ dependencies = [
  "semver",
  "serde",
  "toml 1.2.1+spec-1.1.0",
+]
+
+[[package]]
+name = "castaway"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-opener",
 ]
 
 [[package]]
