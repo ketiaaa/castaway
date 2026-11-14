@@ -1,3 +1,4 @@
+pub mod log_parser;
 pub mod settings;
 pub mod paths;
 
