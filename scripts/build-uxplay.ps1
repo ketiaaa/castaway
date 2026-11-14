@@ -9,8 +9,9 @@ param([string]$Msys2 = 'C:\msys64')
 
 $ErrorActionPreference = 'Stop'
 
-# Pinned UxPlay release tag (https://github.com/FDH2/UxPlay/tags). Change here only.
-$UxPlayTag = 'v1.73.7'
+# Pinned UxPlay commit: pre-1.74 master (no release tag has the built-in mDNS responder
+# without Bonjour; v1.73.7 needs the Bonjour SDK on Windows). Change here only.
+$UxPlayTag = '05b0275cb1b726592700e47a6e0307544b3d3a52'
 
 $Root   = Split-Path -Parent $PSScriptRoot
 $OutDir = Join-Path $Root 'src-tauri\resources\uxplay'
@@ -27,7 +28,7 @@ function To-MsysPath([string]$p) {
 New-Item -ItemType Directory -Force $Work, $OutDir | Out-Null
 $env:MSYSTEM = 'UCRT64'
 $env:CHERE_INVOKING = '1'
-$env:UXPLAY_TAG = $UxPlayTag
+$env:UXPLAY_REF = $UxPlayTag
 $env:UXPLAY_WORK = To-MsysPath $Work
 $env:UXPLAY_OUT = To-MsysPath $OutDir
 
@@ -35,5 +36,5 @@ $env:UXPLAY_OUT = To-MsysPath $OutDir
 if ($LASTEXITCODE -ne 0) { throw "build-uxplay.sh failed ($LASTEXITCODE)" }
 
 # BOM-less, no trailing newline needed
-[System.IO.File]::WriteAllText((Join-Path $OutDir 'VERSION.txt'), "$UxPlayTag`n")
+[System.IO.File]::WriteAllText((Join-Path $OutDir 'VERSION.txt'), "$UxPlayTag`n(UxPlay FDH2/UxPlay master commit, pre-1.74, built without USE_DNS_SD)`n")
 Write-Host "UxPlay $UxPlayTag vendored into $OutDir"

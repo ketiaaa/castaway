@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# MSYS2 UCRT64 half of build-uxplay.ps1. Expects UXPLAY_TAG, UXPLAY_WORK, UXPLAY_OUT.
+# MSYS2 UCRT64 half of build-uxplay.ps1. Expects UXPLAY_REF, UXPLAY_WORK, UXPLAY_OUT.
 set -euo pipefail
 
-: "${UXPLAY_TAG:?}" "${UXPLAY_WORK:?}" "${UXPLAY_OUT:?}"
+: "${UXPLAY_REF:?}" "${UXPLAY_WORK:?}" "${UXPLAY_OUT:?}"
 P=mingw-w64-ucrt-x86_64
 
 pacman -S --needed --noconfirm git binutils \
@@ -14,22 +14,14 @@ SRC="$UXPLAY_WORK/src"
 if [ ! -d "$SRC/.git" ]; then
   git clone https://github.com/FDH2/UxPlay.git "$SRC"
 fi
-git -C "$SRC" fetch --tags --force
-git -C "$SRC" checkout --force "tags/$UXPLAY_TAG"
+git -C "$SRC" fetch --force origin
+git -C "$SRC" checkout --force "$UXPLAY_REF"
 
-# UxPlay v1.73.x has no -DUSE_DNS_SD option; on Windows its CMake build always links
-# the Bonjour SDK (dns_sd.h + Lib/x64/dnssd.lib). See scripts/README.md (OPEN ISSUE).
-SDK="${BONJOUR_SDK_HOME:-C:\Program Files\Bonjour SDK}"
-SDK_U="$(cygpath -u "$SDK")"
-if [ ! -f "$SDK_U/Include/dns_sd.h" ] || [ ! -f "$SDK_U/Lib/x64/dnssd.lib" ]; then
-  echo "ERROR: Bonjour SDK not found at '$SDK' (need Include/dns_sd.h and Lib/x64/dnssd.lib)." >&2
-  echo "       Install it or set BONJOUR_SDK_HOME. See scripts/README.md." >&2
-  exit 2
-fi
+# No -DUSE_DNS_SD=1: pre-1.74 master uses the built-in lib/mdnsd (no Bonjour).
 rm -rf "$SRC/build"
 mkdir "$SRC/build"
 cd "$SRC/build"
-cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
+cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DNO_MARCH_NATIVE=ON ..
 ninja
 
 PREFIX="$(cygpath -u "$MSYSTEM_PREFIX")"   # /ucrt64
@@ -40,10 +32,10 @@ cp "$SRC/LICENSE" "$UXPLAY_OUT/LICENSE-UxPlay.txt"
 
 # GStreamer plugins UxPlay's pipelines need (video: h264parse+avdec_h264+d3d11/gl sinks;
 # audio: avdec_aac/alac + directsound/wasapi sinks; plus glue elements).
-PLUGINS="coreelements app playback typefind videoconvertscale videoparsersbad \
+PLUGINS="coreelements app playback videoconvertscale videoparsersbad \
  audioconvert audioresample audioparsers volume videorate autodetect libav \
- d3d11 d3d12 directsound wasapi wasapi2 opengl fpsdisplaysink debugutilsbad \
- videofilter isomp4 gio"
+ d3d11 d3d12 directsound wasapi wasapi2 opengl debugutilsbad \
+ videofilter isomp4 gio level pango typefindfunctions jpeg audiofx rawparse subparse"
 for p in $PLUGINS; do
   f="$PREFIX/lib/gstreamer-1.0/libgst$p.dll"
   if [ -f "$f" ]; then cp "$f" "$UXPLAY_OUT/gst-plugins/"; else echo "note: plugin $p not present, skipped"; fi

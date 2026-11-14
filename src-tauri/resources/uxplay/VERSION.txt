@@ -1,1 +1,2 @@
-v1.73.7
+05b0275cb1b726592700e47a6e0307544b3d3a52
+(UxPlay FDH2/UxPlay master commit, pre-1.74, built without USE_DNS_SD)
