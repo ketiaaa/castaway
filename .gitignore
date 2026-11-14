@@ -1,0 +1,5 @@
+node_modules/
+target/
+dist/
+src-tauri/resources/uxplay/*
+!src-tauri/resources/uxplay/VERSION.txt
