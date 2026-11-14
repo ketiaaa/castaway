@@ -1,13 +1,18 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {
+  type PinFormMode,
   type Settings,
   type Status,
+  type ToggleAction,
   formToPin,
   formToPort,
   pinToForm,
   portToForm,
+  registryAllowed,
   statusView,
+  toggleAction,
+  toggleLabel,
 } from "./model";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -34,23 +39,47 @@ function clearError() {
   loadError.hidden = true;
 }
 
-let running = false;
+let action: ToggleAction = "start";
+let renderSeq = 0;
 
-function renderStatus(status: Status) {
-  const v = statusView(status);
+function paintStatus(status: Status, plain?: string) {
+  const v = statusView(status, plain);
   banner.className = `banner ${v.tone}`;
   $("banner-label").textContent = v.label;
   const d = $("banner-detail");
   d.textContent = v.detail ?? "";
   d.hidden = !v.detail;
-  running = status !== "Stopped" && !(typeof status === "object" && "Error" in status);
-  toggle.textContent = running ? "Stop" : "Start";
+  const raw = $("banner-raw");
+  raw.textContent = v.raw ? `Details: ${v.raw}` : "";
+  raw.hidden = !v.raw;
+  action = toggleAction(status);
+  toggle.textContent = toggleLabel(action);
   toggle.disabled = false;
 }
 
+async function renderStatus(status: Status) {
+  const seq = ++renderSeq;
+  paintStatus(status);
+  if (typeof status === "object" && "Error" in status) {
+    try {
+      const plain = await invoke<string>("describe_error", { msg: status.Error });
+      if (seq === renderSeq) paintStatus(status, plain);
+    } catch {
+      // Keep the generic sentence.
+    }
+  }
+}
+
+function pinMode(): PinFormMode {
+  return (pinRadios().find((r) => r.checked)?.value ?? "off") as PinFormMode;
+}
+
 function updatePinInput() {
-  const mode = pinRadios().find((r) => r.checked)?.value;
+  const mode = pinMode();
   pinFixed.hidden = mode !== "fixed";
+  const allowed = registryAllowed(mode);
+  $<HTMLInputElement>("use_registry").disabled = !allowed;
+  $("registry-help").hidden = allowed;
 }
 
 function fillForm(s: Settings) {
@@ -72,7 +101,7 @@ function fillForm(s: Settings) {
 }
 
 function readForm(): Settings {
-  const mode = (pinRadios().find((r) => r.checked)?.value ?? "off") as "off" | "random" | "fixed";
+  const mode = pinMode();
   return {
     name: val("name"),
     hide_hostname: checked("hide_hostname"),
@@ -100,15 +129,15 @@ async function loadSettings() {
 
 async function loadStatus() {
   try {
-    renderStatus(await invoke<Status>("get_status"));
+    await renderStatus(await invoke<Status>("get_status"));
   } catch (e) {
     showError(e);
   }
 }
 
-async function loadHealth() {
+async function loadHealth(force = false) {
   try {
-    const msgs = await invoke<string[]>("get_health");
+    const msgs = await invoke<string[]>("get_health", { force });
     $("health-list").replaceChildren(
       ...msgs.map((m) => {
         const li = document.createElement("li");
@@ -147,11 +176,11 @@ async function save(ev: Event) {
 async function init() {
   $("form").addEventListener("submit", save);
   pinRadios().forEach((r) => r.addEventListener("change", updatePinInput));
-  $("recheck").addEventListener("click", loadHealth);
+  $("recheck").addEventListener("click", () => void loadHealth(true));
   toggle.addEventListener("click", async () => {
     toggle.disabled = true;
     try {
-      await invoke(running ? "stop_server" : "start_server");
+      await invoke(`${action}_server`);
     } catch (e) {
       showError(e);
     } finally {
@@ -160,7 +189,7 @@ async function init() {
   });
   try {
     await listen<Status>("status-changed", (e) => {
-      renderStatus(e.payload);
+      void renderStatus(e.payload);
       void loadHealth();
     });
   } catch (e) {

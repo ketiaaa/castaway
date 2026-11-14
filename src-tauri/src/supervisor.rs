@@ -158,6 +158,9 @@ fn kill(child: &mut Child) {
 struct LaunchState {
     last_err: String,
     last_out: String,
+    /// First `UxEvent::Error` text of this launch: the diagnostic line
+    /// (later ones are usually just "*** ERROR: stopping").
+    first_error: Option<String>,
     disc_deadline: Option<Instant>,
 }
 
@@ -168,6 +171,12 @@ impl LaunchState {
         } else {
             self.last_err.clone()
         }
+    }
+
+    /// What explains this launch's failure: the first error line, else the
+    /// last output line.
+    fn diagnostic(&self) -> String {
+        self.first_error.clone().unwrap_or_else(|| self.last_line())
     }
 }
 
@@ -244,14 +253,16 @@ impl Runner {
             }
             Some(UxEvent::Error(msg)) => {
                 st.disc_deadline = None;
+                st.first_error.get_or_insert_with(|| msg.clone());
                 self.set(Status::Error(msg));
             }
             None => {}
         }
     }
 
-    /// Run one child until it exits or stop is raised. Returns the last output
-    /// line when the child died on its own, `None` when we stopped it.
+    /// Run one child until it exits or stop is raised. Returns the diagnostic
+    /// (first error line, else last output line) when the child died on its
+    /// own, `None` when we stopped it.
     fn run_once(&self) -> Option<String> {
         let mut child = match self.spawn() {
             Ok(c) => c,
@@ -310,7 +321,7 @@ impl Runner {
         if self.stopped() {
             return None;
         }
-        let last = st.last_line();
+        let last = st.diagnostic();
         Some(if last.is_empty() {
             exit_note.unwrap_or_default()
         } else {
@@ -323,7 +334,7 @@ impl Runner {
         let mut failures = 0usize;
         loop {
             let started = Instant::now();
-            let Some(last_line) = self.run_once() else {
+            let Some(diagnostic) = self.run_once() else {
                 return;
             };
             if started.elapsed() >= self.cfg.stable_after {
@@ -331,7 +342,7 @@ impl Runner {
             }
             failures += 1;
             if failures >= self.cfg.max_failures {
-                self.set(Status::Error(format!("UxPlay keeps stopping: {last_line}")));
+                self.set(Status::Error(format!("UxPlay keeps stopping: {diagnostic}")));
                 return;
             }
             self.set(Status::Starting);

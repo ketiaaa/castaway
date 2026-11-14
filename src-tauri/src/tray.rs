@@ -1,6 +1,6 @@
 //! System tray: status line, Start/Stop, Settings…, Quit.
 
-use crate::commands::{AppState, start, status_text, tray_toggle_label};
+use crate::commands::{AppState, port_base, restart, start, status_text, tray_toggle_label};
 use crate::supervisor::Status;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -32,7 +32,7 @@ pub fn quit(app: &AppHandle) {
 }
 
 pub fn build(app: &AppHandle, initial: &Status) -> tauri::Result<()> {
-    let status = MenuItem::with_id(app, "status", status_text(initial), false, None::<&str>)?;
+    let status = MenuItem::with_id(app, "status", status_text(initial, None), false, None::<&str>)?;
     let toggle = MenuItem::with_id(app, "toggle", tray_toggle_label(initial), true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
@@ -43,14 +43,14 @@ pub fn build(app: &AppHandle, initial: &Status) -> tauri::Result<()> {
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .menu(&menu)
         .show_menu_on_left_click(false)
-        .tooltip(status_text(initial))
+        .tooltip(status_text(initial, None))
         .on_menu_event(|app, event| match event.id().as_ref() {
             "toggle" => {
                 if let Some(state) = app.try_state::<AppState>() {
-                    if tray_toggle_label(&state.supervisor.status()) == "Stop" {
-                        state.supervisor.stop();
-                    } else {
-                        start(&state);
+                    match tray_toggle_label(&state.supervisor.status()) {
+                        "Stop" => state.supervisor.stop(),
+                        "Restart" => restart(&state),
+                        _ => start(&state),
                     }
                 }
             }
@@ -79,7 +79,8 @@ pub fn build(app: &AppHandle, initial: &Status) -> tauri::Result<()> {
 /// caller: the work is posted to the main thread (the caller may be the
 /// supervisor's dispatcher thread while the main thread is stopping it).
 pub fn update(app: &AppHandle, s: &Status) {
-    let text = status_text(s);
+    let base = app.try_state::<AppState>().and_then(|st| port_base(&st));
+    let text = status_text(s, base);
     let label = tray_toggle_label(s);
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {

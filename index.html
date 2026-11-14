@@ -20,6 +20,7 @@
         <div class="banner-text">
           <strong id="banner-label">Loading…</strong>
           <span id="banner-detail" class="detail" hidden></span>
+          <small id="banner-raw" class="raw" hidden></small>
         </div>
         <button type="button" id="toggle" class="primary" disabled>Start</button>
       </section>
@@ -39,7 +40,7 @@
           <legend>Device</legend>
           <div class="field">
             <label for="name">Name</label>
-            <input id="name" type="text" maxlength="63" />
+            <input id="name" type="text" maxlength="50" />
             <small>This is how the PC appears in your iPhone's Screen Mirroring list.</small>
           </div>
           <label class="check"><input id="hide_hostname" type="checkbox" /> Don't add the computer name to the display name</label>
@@ -88,12 +89,12 @@
             <span id="pin-legend" class="label">Pairing code (PIN)</span>
             <div class="radios">
               <label class="check"><input type="radio" name="pin" value="off" /> Off</label>
-              <label class="check"><input type="radio" name="pin" value="random" /> Random each time</label>
               <label class="check"><input type="radio" name="pin" value="fixed" /> Fixed</label>
               <input id="pin_fixed" type="text" inputmode="numeric" maxlength="4" placeholder="4 digits" aria-label="Fixed PIN, 4 digits" class="short" />
             </div>
           </div>
           <label class="check"><input id="use_registry" type="checkbox" /> Remember trusted devices</label>
+          <small id="registry-help" hidden>Available when a fixed PIN is set.</small>
         </fieldset>
 
         <fieldset>

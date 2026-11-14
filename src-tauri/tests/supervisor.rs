@@ -1,3 +1,5 @@
+use castaway_lib::commands;
+use castaway_lib::health::{self, HealthIssue};
 use castaway_lib::supervisor::{Status, Supervisor, SupervisorConfig};
 use std::path::PathBuf;
 use std::process::Command;
@@ -178,7 +180,41 @@ fn crash_restarts_with_backoff() {
 }
 
 #[test]
-fn repeated_crash_ends_in_error_with_last_stderr_line() {
+fn missing_plugin_crash_loop_ends_in_plain_plugin_message() {
+    let env = Env::new("crash_plugin");
+    let sup = env.sup(quick_cfg());
+    sup.start(args(&["crash_missing_plugin", &env.count_arg()]));
+    assert!(wait_until(WAIT, || matches!(sup.status(), Status::Error(m) if m.starts_with("UxPlay keeps stopping"))));
+    let status = sup.status();
+    assert_eq!(
+        status,
+        Status::Error("UxPlay keeps stopping: Required gstreamer plugin 'app' not found".into())
+    );
+    let Status::Error(msg) = &status else { unreachable!() };
+    let plugin = health::issue_message(&HealthIssue::GStreamerPluginMissing("app".into()));
+    assert_eq!(
+        commands::health_messages(false, false, false, vec![], Some(msg), None),
+        vec![plugin.clone()]
+    );
+    assert_eq!(commands::status_text(&status, None), format!("Problem: {plugin}"));
+    sup.stop();
+}
+
+#[test]
+fn crash_without_error_event_falls_back_to_last_stderr_line() {
+    let env = Env::new("crash_plain");
+    let sup = env.sup(quick_cfg());
+    sup.start(args(&["crash_plain", &env.count_arg()]));
+    assert!(wait_until(WAIT, || matches!(sup.status(), Status::Error(m) if m.starts_with("UxPlay keeps stopping"))));
+    assert_eq!(
+        sup.status(),
+        Status::Error("UxPlay keeps stopping: plain failure two".into())
+    );
+    sup.stop();
+}
+
+#[test]
+fn repeated_crash_ends_in_error_with_first_error_line() {
     let env = Env::new("crash_final");
     let sup = env.sup(quick_cfg());
     sup.start(args(&["crash", &env.count_arg()]));

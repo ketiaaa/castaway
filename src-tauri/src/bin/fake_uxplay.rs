@@ -85,6 +85,18 @@ fn main() {
             eprintln!("*** ERROR: fake failure");
             std::process::exit(1)
         }
+        Some("crash_missing_plugin") => {
+            // First error line of tests/fixtures/crash_missing_plugin.log.
+            eprintln!("Required gstreamer plugin 'app' not found");
+            eprintln!("Missing plugin is contained in  '[GStreamer 1.x]-plugins-base'");
+            eprintln!("*** ERROR: stopping");
+            std::process::exit(1)
+        }
+        Some("crash_plain") => {
+            eprintln!("plain failure one");
+            eprintln!("plain failure two");
+            std::process::exit(1)
+        }
         Some("crash_after_ok") => {
             println!("{LISTENING}");
             sleep(Duration::from_millis(300));

@@ -18,14 +18,19 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             tray::show_main_window(app);
         }))
-        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
-        .plugin(tauri_plugin_opener::init())
+        // Started by Windows at login: tray only, no settings window.
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            Some(vec!["--hidden"]),
+        ))
         .invoke_handler(tauri::generate_handler![
             commands::get_settings,
             commands::save_settings,
             commands::get_status,
             commands::start_server,
             commands::stop_server,
+            commands::restart_server,
+            commands::describe_error,
             commands::get_health,
         ])
         .on_window_event(|window, event| {
@@ -62,9 +67,15 @@ pub fn run() {
             app.manage(AppState {
                 supervisor,
                 settings: Mutex::new(loaded),
+                probes: Mutex::new(None),
             });
             if let Some(state) = app.try_state::<AppState>() {
                 commands::start(&state);
+            }
+            // The window is created hidden (tauri.conf.json); a normal launch shows it.
+            let args: Vec<String> = std::env::args().collect();
+            if !commands::should_start_hidden(&args) {
+                tray::show_main_window(&handle);
             }
             Ok(())
         })
