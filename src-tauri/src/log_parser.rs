@@ -170,9 +170,9 @@ mod tests {
             ))
         );
         assert_eq!(
-            parse_line("connection request from Ketia\u{2019}s iPhone \u{1F4F1} (iPhone15,3) with deviceID = aa:bb\r\n"),
+            parse_line("connection request from Alex\u{2019}s iPhone \u{1F4F1} (iPhone15,3) with deviceID = aa:bb\r\n"),
             Some(UxEvent::ClientConnected {
-                device: Some("Ketia\u{2019}s iPhone \u{1F4F1}".to_string())
+                device: Some("Alex\u{2019}s iPhone \u{1F4F1}".to_string())
             })
         );
         assert_eq!(parse_line("\u{1b}[32mhello\u{1b}[0m \u{4f60}\u{597d}"), None);
