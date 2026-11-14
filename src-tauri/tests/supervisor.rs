@@ -126,7 +126,7 @@ fn start_reaches_waiting() {
     assert_eq!(sup.status(), Status::Stopped);
     sup.start(args(&["ok"]));
     assert!(wait_until(WAIT, || sup.status() == Status::Waiting));
-    assert_eq!(env.hist(), vec![Status::Starting, Status::Waiting]);
+    assert!(wait_until(WAIT, || env.hist() == vec![Status::Starting, Status::Waiting]));
     sup.stop();
 }
 
@@ -141,10 +141,8 @@ fn connect_and_disconnect_lines_update_status() {
     assert_eq!(sup.status(), connected());
     // After the grace with no new connect we fall back to Waiting.
     assert!(wait_until(WAIT, || sup.status() == Status::Waiting));
-    assert_eq!(
-        env.hist(),
-        vec![Status::Starting, Status::Waiting, connected(), Status::Waiting]
-    );
+    assert!(wait_until(WAIT, || env.hist()
+        == vec![Status::Starting, Status::Waiting, connected(), Status::Waiting]));
     sup.stop();
 }
 
@@ -159,6 +157,9 @@ fn connect_inside_grace_keeps_connected() {
     // Closes at +200ms, reconnect at +500ms, grace would have expired at +1700ms.
     sleep(Duration::from_millis(2200));
     assert_eq!(sup.status(), connected());
+    assert!(wait_until(WAIT, || env.hist()
+        == vec![Status::Starting, Status::Waiting, connected()]));
+    sleep(Duration::from_millis(100));
     assert_eq!(env.hist(), vec![Status::Starting, Status::Waiting, connected()]);
     sup.stop();
 }
@@ -262,3 +263,94 @@ fn restart_with_new_args_replaces_child() {
     assert!(wait_until(WAIT, || !alive(b)));
 }
 
+
+#[test]
+fn callback_may_call_stop_without_deadlock() {
+    let env = Env::new("cb_stop");
+    let slot: Arc<Mutex<Option<Arc<Supervisor>>>> = Arc::default();
+    let (done_tx, done_rx) = std::sync::mpsc::channel::<()>();
+    let done_tx = Mutex::new(done_tx);
+    let cb_slot = slot.clone();
+    let sup = Arc::new(Supervisor::new(
+        PathBuf::from(FAKE),
+        quick_cfg(),
+        Arc::new(move |s| {
+            if s == Status::Waiting {
+                let sup = cb_slot.lock().unwrap().clone();
+                if let Some(sup) = sup {
+                    sup.stop();
+                    let _ = done_tx.lock().unwrap().send(());
+                }
+            }
+        }),
+    ));
+    *slot.lock().unwrap() = Some(sup.clone());
+    let pid_arg = env.pid_arg("pid");
+    sup.start(args(&["ok", &pid_arg]));
+    assert!(
+        done_rx.recv_timeout(WAIT).is_ok(),
+        "callback calling stop() deadlocked"
+    );
+    assert!(wait_until(WAIT, || sup.status() == Status::Stopped));
+    let pid = env.pid("pid");
+    assert!(wait_until(WAIT, || !alive(pid)));
+    *slot.lock().unwrap() = None; // break the Arc cycle
+}
+
+#[test]
+fn concurrent_start_during_stop_never_leaves_stale_stopped() {
+    let env = Env::new("race_stop");
+    let sup = Arc::new(env.sup(quick_cfg()));
+    let a = args(&["ok", &env.count_arg()]);
+    let (s1, s2) = (sup.clone(), sup.clone());
+    let a1 = a.clone();
+    let t1 = std::thread::spawn(move || {
+        for _ in 0..30 {
+            s1.stop();
+        }
+    });
+    let t2 = std::thread::spawn(move || {
+        for _ in 0..30 {
+            s2.start(a1.clone());
+        }
+    });
+    t1.join().unwrap();
+    t2.join().unwrap();
+    sup.start(a); // quiesce: ensure running (no-op if already running)
+    assert!(wait_until(WAIT, || sup.status() == Status::Waiting));
+    // Status must stay non-Stopped while the child runs.
+    sleep(Duration::from_millis(300));
+    assert_eq!(sup.status(), Status::Waiting);
+    // Exactly one live child: stopping once leaves nothing behind.
+    let launches_before = env.launches();
+    sup.stop();
+    assert_eq!(sup.status(), Status::Stopped);
+    sleep(Duration::from_millis(300));
+    assert_eq!(env.launches(), launches_before, "child relaunched after stop");
+}
+
+#[test]
+fn restart_always_applies_new_args() {
+    for i in 0..10 {
+        let env = Env::new(&format!("restart_args{i}"));
+        let sup = Arc::new(env.sup(quick_cfg()));
+        let old = args(&["ok", &env.pid_arg("old")]);
+        let new = args(&["ok", &env.pid_arg("new")]);
+        let s1 = sup.clone();
+        let t = std::thread::spawn(move || s1.start(old));
+        sup.restart(new);
+        t.join().unwrap();
+        // start(old) either ran before restart (replaced) or after it
+        // (no-op since a session is live): the new child must be running.
+        let new_pid = env.pid("new");
+        assert!(alive(new_pid));
+        assert!(wait_until(WAIT, || sup.status() == Status::Waiting));
+        if let Ok(s) = std::fs::read_to_string(env.path("old")) {
+            if let Ok(p) = s.trim().parse::<u32>() {
+                assert!(wait_until(WAIT, || !alive(p)), "old child still alive");
+            }
+        }
+        sup.stop();
+        assert!(wait_until(WAIT, || !alive(new_pid)));
+    }
+}

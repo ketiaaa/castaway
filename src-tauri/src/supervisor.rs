@@ -57,32 +57,37 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// Shared status cell; the callback fires only on actual changes.
+/// Shared status cell. Changes are recorded under one lock and delivered, in
+/// order, by a dedicated dispatcher thread, so `on_status` never runs while a
+/// Supervisor lock is held (it may call back into the Supervisor).
 struct StatusCell {
-    current: Mutex<Status>,
-    emit: Mutex<()>,
-    on_status: OnStatus,
+    state: Mutex<CellState>,
+}
+
+struct CellState {
+    current: Status,
+    tx: Option<mpsc::Sender<Status>>,
 }
 
 impl StatusCell {
     /// Set `status`, unless `stop` is raised (a stale session must not report).
     fn set(&self, status: Status, stop: Option<&AtomicBool>) {
-        let _emit = lock(&self.emit);
-        if stop.is_some_and(|s| s.load(Ordering::SeqCst)) {
+        let mut st = lock(&self.state);
+        if stop.is_some_and(|s| s.load(Ordering::SeqCst)) || st.current == status {
             return;
         }
-        {
-            let mut cur = lock(&self.current);
-            if *cur == status {
-                return;
-            }
-            *cur = status.clone();
+        st.current = status.clone();
+        if let Some(tx) = &st.tx {
+            let _ = tx.send(status);
         }
-        (self.on_status)(status);
     }
 
     fn get(&self) -> Status {
-        lock(&self.current).clone()
+        lock(&self.state).current.clone()
+    }
+
+    fn close(&self) {
+        lock(&self.state).tx = None;
     }
 }
 
@@ -96,7 +101,10 @@ pub struct Supervisor {
     cfg: SupervisorConfig,
     job: Option<Arc<Job>>,
     cell: Arc<StatusCell>,
+    /// Control lock: held across all of start/stop/restart so they are atomic
+    /// with respect to each other.
     session: Mutex<Option<Session>>,
+    dispatcher: Mutex<Option<JoinHandle<()>>>,
 }
 
 struct Line {
@@ -327,16 +335,30 @@ impl Runner {
 
 impl Supervisor {
     pub fn new(program: PathBuf, cfg: SupervisorConfig, on_status: OnStatus) -> Supervisor {
+        let (tx, rx) = mpsc::channel::<Status>();
+        let spawned = thread::Builder::new()
+            .name("uxplay-status".into())
+            .spawn(move || {
+                for s in rx {
+                    on_status(s);
+                }
+            });
+        let (tx, dispatcher) = match spawned {
+            Ok(h) => (Some(tx), Some(h)),
+            Err(_) => (None, None),
+        };
         Supervisor {
             program,
             cfg,
             job: make_job(),
             cell: Arc::new(StatusCell {
-                current: Mutex::new(Status::Stopped),
-                emit: Mutex::new(()),
-                on_status,
+                state: Mutex::new(CellState {
+                    current: Status::Stopped,
+                    tx,
+                }),
             }),
             session: Mutex::new(None),
+            dispatcher: Mutex::new(dispatcher),
         }
     }
 
@@ -347,6 +369,10 @@ impl Supervisor {
     /// Start UxPlay with `args`. No-op while a session is still running.
     pub fn start(&self, args: Vec<String>) {
         let mut session = lock(&self.session);
+        self.start_locked(&mut session, args);
+    }
+
+    fn start_locked(&self, session: &mut Option<Session>, args: Vec<String>) {
         if session.as_ref().is_some_and(|s| !s.handle.is_finished()) {
             return;
         }
@@ -369,7 +395,6 @@ impl Supervisor {
             cell: self.cell.clone(),
             stop: stop.clone(),
         };
-        // Report Starting synchronously so callers see it immediately.
         self.cell.set(Status::Starting, None);
         let spawned = thread::Builder::new()
             .name("uxplay-supervisor".into())
@@ -384,27 +409,36 @@ impl Supervisor {
     }
 
     /// Stop the session thread (killing the child) and wait for it.
-    fn halt(&self) {
-        let session = lock(&self.session).take();
-        if let Some(s) = session {
+    fn halt_locked(session: &mut Option<Session>) {
+        if let Some(s) = session.take() {
             s.stop.store(true, Ordering::SeqCst);
             let _ = s.handle.join();
         }
     }
 
     pub fn stop(&self) {
-        self.halt();
+        let mut session = lock(&self.session);
+        Self::halt_locked(&mut session);
         self.cell.set(Status::Stopped, None);
     }
 
     pub fn restart(&self, args: Vec<String>) {
-        self.stop();
-        self.start(args);
+        let mut session = lock(&self.session);
+        Self::halt_locked(&mut session);
+        self.cell.set(Status::Stopped, None);
+        self.start_locked(&mut session, args);
     }
 }
 
 impl Drop for Supervisor {
     fn drop(&mut self) {
-        self.halt();
+        Self::halt_locked(&mut lock(&self.session));
+        self.cell.close();
+        if let Some(h) = lock(&self.dispatcher).take() {
+            // Dropped from inside a callback: cannot join ourselves.
+            if h.thread().id() != thread::current().id() {
+                let _ = h.join();
+            }
+        }
     }
 }
