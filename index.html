@@ -3,12 +3,114 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
     <link rel="stylesheet" href="/src/styles.css" />
     <title>Castaway</title>
     <script type="module" src="/src/main.ts" defer></script>
   </head>
 
   <body>
-    <main id="app"></main>
+    <main id="app">
+      <header class="top">
+        <h1>Castaway</h1>
+        <span class="sub">Mirror your iPhone, iPad or Mac to this PC</span>
+      </header>
+
+      <section id="banner" class="banner idle" aria-live="polite">
+        <div class="banner-text">
+          <strong id="banner-label">Loading…</strong>
+          <span id="banner-detail" class="detail" hidden></span>
+        </div>
+        <button type="button" id="toggle" class="primary" disabled>Start</button>
+      </section>
+
+      <section id="health" class="health" hidden aria-labelledby="health-title">
+        <div class="health-head">
+          <h2 id="health-title">Things to fix</h2>
+          <button type="button" id="recheck">Check again</button>
+        </div>
+        <ul id="health-list"></ul>
+      </section>
+
+      <p id="load-error" class="error" role="alert" hidden></p>
+
+      <form id="form" autocomplete="off" novalidate>
+        <fieldset>
+          <legend>Device</legend>
+          <div class="field">
+            <label for="name">Name</label>
+            <input id="name" type="text" maxlength="63" />
+            <small>This is how the PC appears in your iPhone's Screen Mirroring list.</small>
+          </div>
+          <label class="check"><input id="hide_hostname" type="checkbox" /> Don't add the computer name to the display name</label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Picture and sound</legend>
+          <div class="row">
+            <div class="field">
+              <label for="width">Width</label>
+              <input id="width" type="number" inputmode="numeric" />
+            </div>
+            <div class="field">
+              <label for="height">Height</label>
+              <input id="height" type="number" inputmode="numeric" />
+            </div>
+            <div class="field">
+              <label for="fps">Frames per second</label>
+              <input id="fps" type="number" inputmode="numeric" />
+            </div>
+          </div>
+          <label class="check"><input id="fullscreen" type="checkbox" /> Open the mirror full screen</label>
+          <div class="row">
+            <div class="field">
+              <label for="video_sink">Video output</label>
+              <select id="video_sink">
+                <option value="d3d11videosink">Direct3D 11</option>
+                <option value="d3d12videosink">Direct3D 12</option>
+                <option value="glimagesink">OpenGL</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="audio_sink">Audio output</label>
+              <select id="audio_sink">
+                <option value="directsoundsink">DirectSound</option>
+                <option value="wasapisink">WASAPI</option>
+              </select>
+            </div>
+          </div>
+          <small>If the picture or sound misbehaves, try another output.</small>
+        </fieldset>
+
+        <fieldset>
+          <legend>Security</legend>
+          <div role="radiogroup" aria-labelledby="pin-legend" class="field">
+            <span id="pin-legend" class="label">Pairing code (PIN)</span>
+            <div class="radios">
+              <label class="check"><input type="radio" name="pin" value="off" /> Off</label>
+              <label class="check"><input type="radio" name="pin" value="random" /> Random each time</label>
+              <label class="check"><input type="radio" name="pin" value="fixed" /> Fixed</label>
+              <input id="pin_fixed" type="text" inputmode="numeric" maxlength="4" placeholder="4 digits" aria-label="Fixed PIN, 4 digits" class="short" />
+            </div>
+          </div>
+          <label class="check"><input id="use_registry" type="checkbox" /> Remember trusted devices</label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Advanced</legend>
+          <div class="field">
+            <label for="port_base">Fixed port</label>
+            <input id="port_base" type="number" inputmode="numeric" class="short" />
+            <small>Leave empty to choose automatically</small>
+          </div>
+          <label class="check"><input id="autostart" type="checkbox" /> Start with Windows</label>
+        </fieldset>
+
+        <div class="actions">
+          <button type="submit" id="save" class="primary">Save</button>
+          <span id="save-msg" role="status" aria-live="polite"></span>
+        </div>
+      </form>
+    </main>
   </body>
 </html>
