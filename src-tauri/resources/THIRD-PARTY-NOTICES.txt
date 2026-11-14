@@ -1,0 +1,164 @@
+Castaway - Third-Party Notices
+==============================
+
+Castaway itself is a Tauri application. It bundles a separate program,
+UxPlay, plus the runtime libraries and GStreamer plugins that UxPlay needs.
+All of these are installed under the resources\uxplay folder next to
+Castaway (resources\uxplay\uxplay.exe, resources\uxplay\*.dll and
+resources\uxplay\gst-plugins\*.dll). Castaway runs uxplay.exe as a separate
+process.
+
+1. UxPlay
+---------
+  Upstream : https://github.com/FDH2/UxPlay
+  Commit   : 05b0275cb1b726592700e47a6e0307544b3d3a52
+  License  : GPL-3.0 (full text: resources\uxplay\LICENSE-UxPlay.txt)
+  Source   : see resources\SOURCE.txt
+
+2. Libraries and plugins bundled with UxPlay
+--------------------------------------------
+These were taken from an MSYS2 UCRT64 installation. The package names,
+versions and license fields below are as reported by `pacman -Qi` for the
+package that owns each bundled file; they are the packagers' metadata and
+are reproduced here as-is (each upstream project's own license text applies).
+
+GStreamer core, base/good/bad plugin sets and gst-libav are LGPL-2.1-or-later.
+The GStreamer plugins in resources\uxplay\gst-plugins are:
+  libgstapp.dll
+  libgstaudioconvert.dll
+  libgstaudiofx.dll
+  libgstaudioparsers.dll
+  libgstaudioresample.dll
+  libgstautodetect.dll
+  libgstcoreelements.dll
+  libgstd3d11.dll
+  libgstd3d12.dll
+  libgstdebugutilsbad.dll
+  libgstdirectsound.dll
+  libgstgio.dll
+  libgstisomp4.dll
+  libgstjpeg.dll
+  libgstlevel.dll
+  libgstlibav.dll
+  libgstopengl.dll
+  libgstpango.dll
+  libgstplayback.dll
+  libgstrawparse.dll
+  libgstsubparse.dll
+  libgsttypefindfunctions.dll
+  libgstvideoconvertscale.dll
+  libgstvideofilter.dll
+  libgstvideoparsersbad.dll
+  libgstvideorate.dll
+  libgstvolume.dll
+  libgstwasapi.dll
+  libgstwasapi2.dll
+
+Packages providing the DLLs (package | license | version):
+  aom | spdx:BSD-2-Clause | 3.15.3-1
+  brotli | spdx:MIT | 1.2.1-1
+  bzip2 | custom | 1.0.8-4
+  cairo | spdx:LGPL-2.1-or-later OR MPL-1.1 | 1.18.6-2
+  dav1d | spdx:BSD-2-Clause | 1.5.4-1
+  expat | spdx:MIT | 2.10.0-1
+  ffmpeg | spdx:GPL-3.0-or-later | 9.0.2-3
+  fontconfig | custom | 2.18.3-1
+  freetype | spdx:GPL-2.0-or-later OR FTL | 2.15.0-1
+  fribidi | spdx:LGPL-2.1-or-later | 1.0.18-1
+  gdk-pixbuf2 | spdx:LGPL-2.1-or-later | 2.44.8-1
+  gettext-runtime | spdx:GPL-3.0-or-later AND LGPL-2.1-or-later | 1.0-1
+  ggml | spdx:MIT | 0.29.0-1
+  glib2 | spdx:LGPL-2.1-or-later | 2.90.1-1
+  gmp | LGPL3  GPL | 6.3.0-2
+  gnutls | spdx:GPL-3.0-or-later  spdx:LGPL-2.1-or-later | 3.8.13-3
+  graphene | spdx:MIT | 1.10.8-3
+  graphite2 | spdx:LGPL-2.1-or-later | 1.3.15-1
+  gsm | custom | 1.0.24-1
+  gst-libav | spdx:LGPL-2.1-or-later | 1.28.9-1
+  gst-plugins-bad | spdx:LGPL-2.1-or-later | 1.28.9-1
+  gst-plugins-bad-libs | spdx:LGPL-2.1-or-later | 1.28.9-1
+  gst-plugins-base | spdx:LGPL-2.1-or-later | 1.28.9-1
+  gst-plugins-good | spdx:LGPL-2.1-or-later | 1.28.9-1
+  gstreamer | spdx:LGPL-2.1-or-later | 1.28.9-1
+  harfbuzz | spdx:MIT | 15.1.0-1
+  highway | spdx:Apache-2.0 | 1.4.0-3
+  jbigkit | spdx:GPL-2.0 | 2.1-6
+  lame | LGPL | 4.0-1
+  lcms2 | spdx:MIT AND GPL-3.0-or-later | 2.20-1
+  lerc | spdx:Apache-2.0 | 4.1.1-1
+  libass | spdx:ISC | 0.17.5-1
+  libbluray | spdx:LGPL-2.1-or-later | 1.5.0-1
+  libdatrie | LGPL | 0.2.14-1
+  libdeflate | spdx:MIT | 1.26-1
+  libdovi | spdx:MIT | 3.4.0-1
+  libffi | spdx:MIT | 3.8.0-1
+  libgcc | spdx:GPL-3.0-or-later WITH GCC-exception-3.1 AND GFDL-1.3-or-later | 16.2.0-7
+  libgme | LGPL | 0.6.5-2
+  libgomp | spdx:GPL-3.0-or-later WITH GCC-exception-3.1 AND GFDL-1.3-or-later | 16.2.0-7
+  libiconv | spdx:LGPL-2.1-or-later  documentation:spdx:GPL-3.0-or-later | 1.19.1-1
+  libidn2 | spdx:GPL-2.0-or-later  spdx:LGPL-3.0-or-later | 2.3.8-5
+  libjpeg-turbo | custom:BSD-like | 3.2.1-1
+  libjxl | spdx:BSD-3-Clause | 0.13.0-1
+  liblc3 | spdx:Apache-2.0 | 1.1.3-1
+  libmodplug | PublicDomain | 0.8.9.0-5
+  libogg | spdx:BSD-3-Clause | 1.3.6-1
+  libplacebo | LGPL2.1 | 7.387.0-1
+  libplist | spdx:GPL-2.0-or-later AND spdx:LGPL-2.1-or-later | 2.7.0-4
+  libpng | custom | 1.6.59-2
+  librsvg | spdx:LGPL-2.1-or-later | 2.63.4-1
+  libsoxr | spdx:LGPL-2.1-or-later | 0.1.3-6
+  libssh | spdx:LGPL-2.1-or-later | 0.12.2-1
+  libstdc++ | spdx:GPL-3.0-or-later WITH GCC-exception-3.1 AND GFDL-1.3-or-later | 16.2.0-7
+  libtasn1 | spdx:GPL-3.0-or-later AND LGPL-2.1-or-later | 4.21.0-2
+  libthai | spdx:LGPL-2.1-or-later | 0.1.30-1
+  libtheora | spdx:BSD-3-Clause | 1.2.0-2
+  libtiff | spdx:MIT | 4.7.2-2
+  libunibreak | spdx:Zlib | 7.0-1
+  libunistring | spdx:LGPL-3.0-or-later OR GPL-3.0-or-later | 1.4.2-1
+  libva | spdx:MIT | 2.24.1-1
+  libvorbis | custom | 1.3.7-3
+  libvpl | spdx:MIT | 2.17.0-1
+  libvpx | spdx:BSD-3-Clause | 1.17.0-1
+  libwebp | spdx:BSD-3-Clause | 1.6.0-1
+  libwinpthread | spdx:MIT AND BSD-3-Clause | 14.0.0.r598.ge3d18511f-1
+  libx264 | custom | 0.165.r3222.b35605a-3
+  libxml2 | spdx:MIT | 2.15.4-3
+  mpg123 | spdx:LGPL-2.1-or-later | 1.33.7-1
+  nettle | spdx:GPL-2.0-or-later  spdx:LGPL-3.0-or-later | 4.0-1
+  opencore-amr | Apache | 0.1.6-1
+  openjpeg2 | spdx:BSD-2-Clause | 2.5.4-2
+  openssl | spdx:Apache-2.0 | 3.6.5-1
+  opus | spdx:BSD-3-Clause | 1.6.1-2
+  orc | custom | 0.4.44-1
+  p11-kit | spdx:BSD-3-Clause | 0.26.6-1
+  pango | spdx:LGPL-2.1 | 1.58.2-1
+  pcre2 | spdx:BSD-3-Clause | 10.49-2
+  pixman | spdx:MIT | 0.46.4-3
+  rav1e | spdx:BSD-2-Clause | 0.8.1-1
+  rtmpdump | spdx:GPL-2.0-or-later  spdx:LGPL-2.1-or-later | 2.6-2
+  shaderc | spdx:Apache-2.0 | 2026.4-1
+  speex | BSD | 1.2.1-1
+  spirv-cross | spdx:Apache-2.0 | 1~1.4.363.0-1
+  srt | spdx:MPL-2.0 | 1.5.7-1
+  svt-av1 | spdx:BSD-3-Clause-Clear | 4.3.0-1
+  vid.stab | spdx:GPL-2.0-or-later | 1.1.2-1
+  vulkan-loader | spdx:Apache-2.0 | 1~1.4.363.0-1
+  whisper.cpp | spdx:MIT | 1~1.9.5.r258.g4da27c41c-1
+  x265 | GPL | 4.3-1
+  xvidcore | GPL | 1.3.7-5
+  xz | spdx:0BSD AND LGPL-2.1-or-later AND GPL-2.0-or-later | 5.8.4-1
+  zimg | spdx:WTFPL | 3.0.6-3
+  zlib | spdx:Zlib | 1.4-2
+  zstd | spdx:BSD-3-Clause OR GPL-2.0-or-later | 1.5.7-2
+  zvbi | spdx:GPL-2.0-or-later AND BSD-2-Clause AND LGPL-2.1-or-later AND MIT | 0.2.46-1
+
+Note: the bundled FFmpeg libraries (avcodec, avformat, avfilter, avutil) come
+from the MSYS2 ffmpeg package, which is licensed GPL-3.0-or-later and is
+built together with GPL encoder libraries (x264, x265, xvidcore are among the
+bundled packages). The overall bundle is therefore distributed under terms
+compatible with GPL-3.0, the same license as UxPlay.
+
+Source code for these packages is available from the MSYS2 project
+(https://github.com/msys2/MINGW-packages) and from each upstream project.
+This list was generated from package metadata; it is not a substitute for
+the upstream license texts.

@@ -1,0 +1,34 @@
+Castaway - Corresponding Source for bundled GPL software
+=========================================================
+
+Castaway bundles and runs UxPlay as a SEPARATE PROGRAM (uxplay.exe, started as
+a child process; it is not linked into Castaway's own executable).
+
+Component : UxPlay (AirPlay mirroring server)
+Upstream  : https://github.com/FDH2/UxPlay
+Commit    : 05b0275cb1b726592700e47a6e0307544b3d3a52  (master, pre-1.74)
+License   : GNU General Public License v3.0 (see LICENSE-UxPlay.txt in the
+            resources\uxplay folder next to uxplay.exe)
+
+The bundled uxplay.exe was built from exactly that commit.
+
+How to rebuild it
+-----------------
+From a checkout of the Castaway repository, in an MSYS2 UCRT64 environment
+with the prerequisites described in scripts\README.md, run:
+
+    scripts\build-uxplay.ps1
+
+The script fetches the pinned commit above, builds uxplay.exe and stages it,
+together with its runtime DLLs and GStreamer plugins, into
+src-tauri\resources\uxplay\.
+
+Source on request
+-----------------
+The complete corresponding source for the bundled UxPlay binary is available
+from the upstream URL and commit above, and on request from the Castaway
+project repository: <project repository URL>
+(placeholder - the project repository URL has not been set yet).
+
+Third-party libraries bundled alongside uxplay.exe are listed in
+THIRD-PARTY-NOTICES.txt.

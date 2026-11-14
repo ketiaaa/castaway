@@ -26,9 +26,11 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis"],
     "resources": [
-      "resources/uxplay/**/*"
+      "resources/uxplay/**/*",
+      "resources/SOURCE.txt",
+      "resources/THIRD-PARTY-NOTICES.txt"
     ],
     "icon": [
       "icons/32x32.png",
@@ -36,6 +38,12 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine",
+        "installerHooks": "installer/hooks.nsh"
+      }
+    }
   }
 }
