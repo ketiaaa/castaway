@@ -1,6 +1,7 @@
 pub mod log_parser;
 pub mod settings;
 pub mod paths;
+pub mod supervisor;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
