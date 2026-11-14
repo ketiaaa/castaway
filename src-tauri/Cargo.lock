@@ -444,6 +444,7 @@ dependencies = [
 name = "castaway"
 version = "0.1.0"
 dependencies = [
+ "castaway",
  "serde",
  "serde_json",
  "tauri",
