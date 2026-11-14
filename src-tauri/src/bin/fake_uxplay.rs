@@ -1,6 +1,7 @@
 //! Test helper standing in for UxPlay. First arg selects a script; extra args
 //! are ignored except `--pid-file=<path>` (write own PID) and
-//! `--count-file=<path>` (append one line per launch).
+//! `--count-file=<path>` (append one line per launch). Script `env` prints
+//! `ENV:CASTAWAY_TEST_VAR=..` / `CWD:..` (also to `--out-file=<path>`).
 
 use std::io::Write;
 use std::thread::sleep;
@@ -32,6 +33,27 @@ fn main() {
                 let _ = writeln!(f, "launch");
             }
         }
+    }
+    if args.first().map(String::as_str) == Some("env") {
+        let line_env = format!(
+            "ENV:CASTAWAY_TEST_VAR={}",
+            std::env::var("CASTAWAY_TEST_VAR").unwrap_or_default()
+        );
+        let line_cwd = format!(
+            "CWD:{}",
+            std::env::current_dir().map(|p| p.display().to_string()).unwrap_or_default()
+        );
+        println!("{line_env}");
+        println!("{line_cwd}");
+        for a in &args {
+            if let Some(p) = a.strip_prefix("--out-file=") {
+                let _ = std::fs::write(p, format!("{line_env}
+{line_cwd}
+"));
+            }
+        }
+        println!("{LISTENING}");
+        forever()
     }
     match args.first().map(String::as_str) {
         Some("ok") => {

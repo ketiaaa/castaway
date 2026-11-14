@@ -33,6 +33,10 @@ pub struct SupervisorConfig {
     pub max_failures: usize,
     pub disconnect_grace: Duration,
     pub stable_after: Duration,
+    /// Extra environment variables for the child.
+    pub env: Vec<(String, String)>,
+    /// Working directory for the child (None: inherit).
+    pub cwd: Option<PathBuf>,
 }
 
 impl Default for SupervisorConfig {
@@ -46,6 +50,8 @@ impl Default for SupervisorConfig {
             max_failures: 5,
             disconnect_grace: Duration::from_secs(2),
             stable_after: Duration::from_secs(10),
+            env: Vec::new(),
+            cwd: None,
         }
     }
 }
@@ -194,12 +200,17 @@ impl Runner {
     }
 
     fn spawn(&self) -> Result<Child, String> {
-        let mut child = Command::new(&self.program)
-            .args(&self.args)
+        let mut cmd = Command::new(&self.program);
+        cmd.args(&self.args)
+            .envs(self.cfg.env.iter().map(|(k, v)| (k, v)))
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .creation_flags(CREATE_NO_WINDOW)
+            .creation_flags(CREATE_NO_WINDOW);
+        if let Some(dir) = &self.cfg.cwd {
+            cmd.current_dir(dir);
+        }
+        let mut child = cmd
             .spawn()
             .map_err(|e| format!("could not start {}: {e}", self.program.display()))?;
         if let Err(e) = self.job.assign_process(child.as_raw_handle() as isize) {

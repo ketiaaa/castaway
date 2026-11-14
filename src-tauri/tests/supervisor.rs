@@ -93,6 +93,7 @@ fn quick_cfg() -> SupervisorConfig {
         max_failures: 3,
         disconnect_grace: Duration::from_millis(700),
         stable_after: Duration::from_secs(60),
+        ..SupervisorConfig::default()
     }
 }
 
@@ -353,4 +354,28 @@ fn restart_always_applies_new_args() {
         sup.stop();
         assert!(wait_until(WAIT, || !alive(new_pid)));
     }
+}
+
+#[test]
+fn child_receives_configured_env_and_cwd() {
+    let e = Env::new("envcwd");
+    let work = e.path("work");
+    std::fs::create_dir_all(&work).unwrap();
+    let cfg = SupervisorConfig {
+        env: vec![("CASTAWAY_TEST_VAR".to_string(), "hello world".to_string())],
+        cwd: Some(work.clone()),
+        ..quick_cfg()
+    };
+    let s = e.sup(cfg);
+    let out = e.path("envout");
+    s.start(args(&["env", &format!("--out-file={}", out.display())]));
+    assert!(wait_until(WAIT, || s.status() == Status::Waiting));
+    let text = std::fs::read_to_string(&out).unwrap();
+    assert!(text.contains("ENV:CASTAWAY_TEST_VAR=hello world"), "{text}");
+    let cwd_line = text.lines().find_map(|l| l.strip_prefix("CWD:")).expect("CWD line");
+    assert_eq!(
+        std::fs::canonicalize(cwd_line).unwrap(),
+        std::fs::canonicalize(&work).unwrap()
+    );
+    s.stop();
 }
