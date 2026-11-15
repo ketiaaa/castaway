@@ -84,7 +84,6 @@ function updatePinInput() {
 
 function fillForm(s: Settings) {
   setVal("name", s.name);
-  setChecked("hide_hostname", s.hide_hostname);
   setVal("width", String(s.width));
   setVal("height", String(s.height));
   setVal("fps", String(s.fps));
@@ -104,7 +103,6 @@ function readForm(): Settings {
   const mode = pinMode();
   return {
     name: val("name"),
-    hide_hostname: checked("hide_hostname"),
     width: Number(val("width")),
     height: Number(val("height")),
     fps: Number(val("fps")),

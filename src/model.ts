@@ -6,7 +6,6 @@ export type PinMode = "Off" | "Random" | { Fixed: string };
 
 export interface Settings {
   name: string;
-  hide_hostname: boolean;
   width: number;
   height: number;
   fps: number;

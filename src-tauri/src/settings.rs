@@ -14,7 +14,6 @@ pub enum PinMode {
 #[serde(default)]
 pub struct Settings {
     pub name: String,
-    pub hide_hostname: bool,
     pub width: u32,
     pub height: u32,
     pub fps: u32,
@@ -40,11 +39,6 @@ pub fn ascii_hostname(raw: Option<&str>) -> String {
     if t.is_empty() { "PC".to_string() } else { t.to_string() }
 }
 
-/// This PC's name as UxPlay will see it (ASCII-filtered COMPUTERNAME).
-pub fn hostname() -> String {
-    ascii_hostname(std::env::var("COMPUTERNAME").ok().as_deref())
-}
-
 fn default_name_for(host: Option<&str>) -> String {
     format!("Castaway on {}", ascii_hostname(host))
 }
@@ -53,22 +47,19 @@ fn default_name() -> String {
     default_name_for(std::env::var("COMPUTERNAME").ok().as_deref())
 }
 
-/// mDNS labels are at most 63 bytes. UxPlay appends "@<hostname>" unless
-/// `-nh` is set, and the AirPlay audio service name adds a 12-hex MAC and "@".
+/// mDNS labels are at most 63 bytes. Castaway always passes `-nh`, so UxPlay
+/// never appends "@<hostname>"; the AirPlay audio service name still adds a
+/// 12-hex MAC and "@".
 const MDNS_LABEL_MAX: usize = 63;
 const RAOP_PREFIX: usize = 13;
 
-/// How many characters of device name fit, given the hostname suffix.
-pub fn name_budget(hide_hostname: bool, host_len: usize) -> usize {
-    let suffix = if hide_hostname { 0 } else { 1 + host_len };
-    MDNS_LABEL_MAX.saturating_sub(RAOP_PREFIX + suffix)
-}
+/// How many characters of device name fit.
+pub const NAME_BUDGET: usize = MDNS_LABEL_MAX - RAOP_PREFIX;
 
 impl Default for Settings {
     fn default() -> Self {
         Settings {
             name: default_name(),
-            hide_hostname: true,
             width: 1920,
             height: 1080,
             fps: 30,
@@ -86,11 +77,6 @@ impl Default for Settings {
 impl Settings {
     /// Returns a short plain-language message for the first invalid field.
     pub fn validate(&self) -> Result<(), String> {
-        self.validate_for_host(&hostname())
-    }
-
-    /// [`Settings::validate`] with an explicit (ASCII) hostname.
-    pub fn validate_for_host(&self, host: &str) -> Result<(), String> {
         let n = self.name.trim();
         if n.is_empty() {
             return Err("The name must not be empty.".into());
@@ -102,13 +88,8 @@ impl Settings {
             return Err("The device name can't start with a dash (-).".into());
         }
         // ASCII only from here on, so bytes == characters.
-        let budget = name_budget(self.hide_hostname, host.len());
-        if self.name.len() > budget {
-            return Err(if self.hide_hostname {
-                format!("The device name is too long. Use at most {budget} characters.")
-            } else {
-                format!("The device name is too long. Use at most {budget} characters (or turn on \"Don't add the computer name\" for more).")
-            });
+        if self.name.len() > NAME_BUDGET {
+            return Err(format!("The device name is too long. Use at most {NAME_BUDGET} characters."));
         }
         if !(320..=7680).contains(&self.width) {
             return Err("The width must be between 320 and 7680.".into());
@@ -157,9 +138,8 @@ pub fn to_args(s: &Settings) -> Vec<String> {
     let mut push = |v: &str| a.push(v.to_string());
     push("-n");
     push(&s.name);
-    if s.hide_hostname {
-        push("-nh");
-    }
+    // Never let UxPlay append "@<computer name>" to the display name.
+    push("-nh");
     push("-s");
     push(&format!("{}x{}", s.width, s.height));
     push("-fps");
@@ -257,11 +237,6 @@ mod tests {
         assert!(s().name.is_ascii());
     }
     #[test]
-    fn default_hides_hostname() {
-        assert!(s().hide_hostname);
-        assert!(to_args(&s()).contains(&"-nh".to_string()));
-    }
-    #[test]
     fn ascii_hostname_sanitizer() {
         assert_eq!(ascii_hostname(Some("DESKTOP-AB12")), "DESKTOP-AB12");
         assert_eq!(ascii_hostname(Some("JOSÉ-PC")), "JOS-PC");
@@ -303,27 +278,15 @@ mod tests {
         assert!(ok.validate().is_ok());
     }
     #[test]
-    fn name_budget_depends_on_hostname_suffix() {
-        assert_eq!(name_budget(true, 11), 50);
-        assert_eq!(name_budget(false, 11), 38);
-        assert_eq!(name_budget(false, 15), 34);
-        assert_eq!(name_budget(false, 200), 0);
+    fn name_budget_is_fixed() {
+        assert_eq!(NAME_BUDGET, 50);
         let mut x = s();
-        x.hide_hostname = true;
         x.name = "a".repeat(50);
-        assert!(x.validate_for_host("DESKTOP-ABC").is_ok());
+        assert!(x.validate().is_ok());
         x.name = "a".repeat(51);
         assert_eq!(
-            x.validate_for_host("DESKTOP-ABC").unwrap_err(),
+            x.validate().unwrap_err(),
             "The device name is too long. Use at most 50 characters."
-        );
-        x.hide_hostname = false;
-        x.name = "a".repeat(38);
-        assert!(x.validate_for_host("DESKTOP-ABC").is_ok());
-        x.name = "a".repeat(39);
-        assert_eq!(
-            x.validate_for_host("DESKTOP-ABC").unwrap_err(),
-            "The device name is too long. Use at most 38 characters (or turn on \"Don't add the computer name\" for more)."
         );
     }
     #[test]
@@ -381,18 +344,15 @@ mod tests {
         assert!(a.get(i + 1).map_or(true, |n| n.starts_with('-')));
     }
     #[test]
-    fn fullscreen_and_hide_hostname_flags() {
+    fn fullscreen_registry_and_always_no_hostname_flags() {
         let mut x = s();
         x.fullscreen = true;
-        x.hide_hostname = true;
         x.use_registry = true;
         x.pin = PinMode::Fixed("1234".into());
         let a = to_args(&x);
         for f in ["-fs", "-nh", "-reg"] {
             assert!(a.contains(&f.to_string()), "{f}");
         }
-        x.hide_hostname = false;
-        assert!(!to_args(&x).contains(&"-nh".to_string()));
     }
     #[test]
     fn load_missing_file_returns_default() {
