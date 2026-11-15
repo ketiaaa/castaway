@@ -1,6 +1,9 @@
 Castaway - Third-Party Notices
 ==============================
 
+Castaway's own code is licensed GPL-3.0-or-later (full text:
+resources\LICENSE-Castaway.txt).
+
 Castaway itself is a Tauri application. It bundles a separate program,
 UxPlay, plus the runtime libraries and GStreamer plugins that UxPlay needs.
 All of these are installed under the resources\uxplay folder next to
@@ -162,3 +165,25 @@ Source code for these packages is available from the MSYS2 project
 (https://github.com/msys2/MINGW-packages) and from each upstream project.
 This list was generated from package metadata; it is not a substitute for
 the upstream license texts.
+
+3. Rust crates and UI libraries linked into castaway.exe
+--------------------------------------------------------
+castaway.exe is built from Tauri 2 and about 470 other Rust crates from
+crates.io (checked with `cargo metadata`). Their declared licenses are all
+permissive or weak-copyleft: MIT, Apache-2.0 (some with the LLVM exception),
+BSD-2/3-Clause, ISC, Zlib, Unicode-3.0, Unlicense, 0BSD, CC0-1.0 and MPL-2.0
+(unmodified, source at https://crates.io). Most are dual-licensed "MIT OR
+Apache-2.0", which Castaway uses under MIT. None is GPL-only. Per-crate
+license texts are in each crate's published source. The web UI bundles only
+Castaway's own code and the MIT/Apache-2.0 @tauri-apps JavaScript libraries.
+
+4. Notes on specific bundled packages
+-------------------------------------
+  jbigkit : listed above as GPL-2.0. Distribution metadata (SUSE, Arch,
+            Homebrew) gives GPL-2.0-or-later, which is compatible with
+            GPL-3.0; the upstream source notice was not independently
+            checked. If it were GPL-2.0-only, remove libjbig and libtiff
+            from the bundle.
+  x265, xvidcore, x264, vid.stab, zvbi, rtmpdump : GPL-2.0-or-later
+            upstream, compatible with GPL-3.0 (bare "GPL" above is the
+            packager's wording).

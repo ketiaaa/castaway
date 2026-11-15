@@ -3,6 +3,7 @@ name = "castaway"
 version = "0.1.0"
 description = "Castaway: Windows tray app wrapping UxPlay"
 authors = ["Castaway contributors"]
+license = "GPL-3.0-or-later"
 edition = "2024"
 default-run = "castaway"
 
