@@ -27,8 +27,7 @@ Source on request
 -----------------
 The complete corresponding source for the bundled UxPlay binary is available
 from the upstream URL and commit above, and on request from the Castaway
-project repository: <project repository URL>
-(placeholder - the project repository URL has not been set yet).
+project repository: https://github.com/ketiaaa/castaway
 
 Third-party libraries bundled alongside uxplay.exe are listed in
 THIRD-PARTY-NOTICES.txt.
