@@ -2,7 +2,7 @@
 //! engine presence, and mapping of UxPlay error text to user-facing issues.
 
 use std::io::Read;
-use std::net::{TcpListener, UdpSocket};
+use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -102,21 +102,16 @@ pub fn network_categories() -> Option<Vec<String>> {
     run_with_timeout(cmd, Duration::from_secs(5)).map(|s| parse_network_categories(&s))
 }
 
-/// Check `base`, `base+1`, `base+2` for TCP and UDP by binding on 0.0.0.0.
-/// One `PortInUse` per port that cannot be bound. Skip when ports are random.
+/// Check the port UxPlay really listens on for `-p base`: TCP `base+1` (verified
+/// with this build: `base` and `base+2` stay unused, and there is no UDP
+/// listener while idle). `PortInUse(base+1)` when it cannot be bound.
 pub fn check_ports(base: u16) -> Vec<HealthIssue> {
-    let mut issues = Vec::new();
-    for offset in 0..3u16 {
-        let Some(port) = base.checked_add(offset) else {
-            break;
-        };
-        let tcp_ok = TcpListener::bind(("0.0.0.0", port)).is_ok();
-        let udp_ok = UdpSocket::bind(("0.0.0.0", port)).is_ok();
-        if !(tcp_ok && udp_ok) {
-            issues.push(HealthIssue::PortInUse(port));
+    match base.checked_add(1) {
+        Some(port) if TcpListener::bind(("0.0.0.0", port)).is_err() => {
+            vec![HealthIssue::PortInUse(port)]
         }
+        _ => Vec::new(),
     }
-    issues
 }
 
 /// True when `netsh advfirewall firewall show rule name=<rule_name>` succeeds.
@@ -230,17 +225,17 @@ mod tests {
     const MISSING_PLUGIN: &str = include_str!("../tests/fixtures/crash_missing_plugin.log");
     const PORT_IN_USE: &str = include_str!("../tests/fixtures/port_in_use.log");
 
-    /// A base port whose base..base+2 are all currently free.
+    /// A base port whose base+1 is currently free.
     fn free_trio() -> u16 {
         for _ in 0..50 {
             let l = TcpListener::bind(("0.0.0.0", 0)).unwrap();
             let p = l.local_addr().unwrap().port();
             drop(l);
-            if p <= 65532 && check_ports(p).is_empty() {
+            if p <= 65534 && check_ports(p).is_empty() {
                 return p;
             }
         }
-        panic!("no free port trio found");
+        panic!("no free port found");
     }
 
     #[test]
@@ -255,31 +250,32 @@ mod tests {
     }
 
     #[test]
-    fn check_ports_reports_a_port_held_by_a_listener() {
+    fn check_ports_reports_base_plus_one_held_by_a_listener() {
         for _ in 0..20 {
             let l = TcpListener::bind(("0.0.0.0", 0)).unwrap();
-            let p = l.local_addr().unwrap().port();
-            if p > 65532 {
+            let held = l.local_addr().unwrap().port();
+            if held < 2 {
                 continue;
             }
-            let issues = check_ports(p);
-            assert!(issues.contains(&HealthIssue::PortInUse(p)), "{issues:?}");
-            assert_eq!(
-                issues.iter().filter(|i| **i == HealthIssue::PortInUse(p)).count(),
-                1
-            );
+            assert_eq!(check_ports(held - 1), vec![HealthIssue::PortInUse(held)]);
             return;
         }
         panic!("could not pick a port");
     }
 
     #[test]
-    fn check_ports_reports_udp_holder() {
-        let s = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
-        let p = s.local_addr().unwrap().port();
-        if p <= 65532 {
-            assert!(check_ports(p).contains(&HealthIssue::PortInUse(p)));
+    fn check_ports_ignores_a_program_on_base_alone() {
+        // UxPlay never listens on `base`, so a holder there is no problem.
+        for _ in 0..20 {
+            let l = TcpListener::bind(("0.0.0.0", 0)).unwrap();
+            let base = l.local_addr().unwrap().port();
+            if base == u16::MAX || TcpListener::bind(("0.0.0.0", base + 1)).is_err() {
+                continue;
+            }
+            assert!(check_ports(base).is_empty());
+            return;
         }
+        panic!("could not pick a port");
     }
 
     #[test]

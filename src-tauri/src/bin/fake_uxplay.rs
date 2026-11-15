@@ -8,6 +8,12 @@ use std::thread::sleep;
 use std::time::Duration;
 
 const LISTENING: &str = "Initialized server socket(s)";
+const ADVERTISED: &str = "register_dnssd: advertised AirPlay service with \"Features\" code = 0x527FFEE6";
+
+fn ready() {
+    println!("{LISTENING}");
+    println!("{ADVERTISED}");
+}
 const CONNECT: &str =
     "connection request from Test iPhone (iPhone14,2) with deviceID = AA:BB:CC:DD:EE:FF";
 
@@ -52,28 +58,28 @@ fn main() {
 "));
             }
         }
-        println!("{LISTENING}");
+        ready();
         forever()
     }
     match args.first().map(String::as_str) {
         Some("ok") => {
-            println!("{LISTENING}");
+            ready();
             forever()
         }
         Some("connect") => {
-            println!("{LISTENING}");
+            ready();
             println!("{CONNECT}");
             forever()
         }
         Some("connect_then_disconnect") => {
-            println!("{LISTENING}");
+            ready();
             println!("{CONNECT}");
             sleep(Duration::from_millis(200));
             closes();
             forever()
         }
         Some("reconnect") => {
-            println!("{LISTENING}");
+            ready();
             println!("{CONNECT}");
             sleep(Duration::from_millis(200));
             closes();
@@ -98,7 +104,7 @@ fn main() {
             std::process::exit(1)
         }
         Some("crash_after_ok") => {
-            println!("{LISTENING}");
+            ready();
             sleep(Duration::from_millis(300));
             std::process::exit(1)
         }

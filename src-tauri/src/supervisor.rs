@@ -162,6 +162,10 @@ struct LaunchState {
     /// (later ones are usually just "*** ERROR: stopping").
     first_error: Option<String>,
     disc_deadline: Option<Instant>,
+    /// Ready needs both: sockets bound and the service advertised.
+    socket_up: bool,
+    advertised: bool,
+    ready: bool,
 }
 
 impl LaunchState {
@@ -236,9 +240,17 @@ impl Runner {
             *dst = t.to_string();
         }
         match l.event {
-            Some(UxEvent::Listening) => {
-                st.disc_deadline = None;
-                self.set(Status::Waiting);
+            Some(ev @ (UxEvent::Listening | UxEvent::Advertised)) => {
+                if ev == UxEvent::Listening {
+                    st.socket_up = true;
+                } else {
+                    st.advertised = true;
+                }
+                if st.socket_up && st.advertised && !st.ready {
+                    st.ready = true;
+                    st.disc_deadline = None;
+                    self.set(Status::Waiting);
+                }
             }
             Some(UxEvent::ClientConnected { device }) => {
                 st.disc_deadline = None;
