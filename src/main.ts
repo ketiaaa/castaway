@@ -88,6 +88,7 @@ function fillForm(s: Settings) {
   setVal("height", String(s.height));
   setVal("fps", String(s.fps));
   setChecked("fullscreen", s.fullscreen);
+  setChecked("low_latency", s.low_latency);
   setVal("video_sink", s.video_sink);
   setVal("audio_sink", s.audio_sink);
   const p = pinToForm(s.pin);
@@ -107,6 +108,7 @@ function readForm(): Settings {
     height: Number(val("height")),
     fps: Number(val("fps")),
     fullscreen: checked("fullscreen"),
+    low_latency: checked("low_latency"),
     video_sink: val("video_sink"),
     audio_sink: val("audio_sink"),
     pin: formToPin(mode, pinFixed.value),

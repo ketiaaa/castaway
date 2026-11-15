@@ -10,6 +10,7 @@ export interface Settings {
   height: number;
   fps: number;
   fullscreen: boolean;
+  low_latency: boolean;
   video_sink: string;
   audio_sink: string;
   pin: PinMode;

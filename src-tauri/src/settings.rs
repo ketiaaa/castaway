@@ -18,6 +18,7 @@ pub struct Settings {
     pub height: u32,
     pub fps: u32,
     pub fullscreen: bool,
+    pub low_latency: bool,
     pub video_sink: String,
     pub audio_sink: String,
     pub pin: PinMode,
@@ -64,6 +65,7 @@ impl Default for Settings {
             height: 1080,
             fps: 30,
             fullscreen: false,
+            low_latency: false,
             video_sink: "d3d11videosink".into(),
             audio_sink: "directsoundsink".into(),
             pin: PinMode::Off,
@@ -163,6 +165,12 @@ pub fn to_args(s: &Settings) -> Vec<String> {
     // UxPlay only uses its register of trusted devices together with -pin.
     if s.use_registry && s.pin != PinMode::Off {
         push("-reg");
+    }
+    // Show video as soon as it arrives instead of syncing it to the audio:
+    // less delay, but picture and sound can drift slightly.
+    if s.low_latency {
+        push("-vsync");
+        push("no");
     }
     if s.fullscreen {
         push("-fs");
@@ -342,6 +350,15 @@ mod tests {
         let a = to_args(&x);
         let i = a.iter().position(|v| v == "-pin").unwrap();
         assert!(a.get(i + 1).map_or(true, |n| n.starts_with('-')));
+    }
+    #[test]
+    fn low_latency_adds_vsync_no_only_when_on() {
+        let mut x = s();
+        assert!(!to_args(&x).contains(&"-vsync".to_string()));
+        x.low_latency = true;
+        let a = to_args(&x);
+        let i = a.iter().position(|v| v == "-vsync").unwrap();
+        assert_eq!(a[i + 1], "no");
     }
     #[test]
     fn fullscreen_registry_and_always_no_hostname_flags() {
