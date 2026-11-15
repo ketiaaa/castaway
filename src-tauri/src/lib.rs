@@ -5,6 +5,7 @@ pub mod paths;
 pub mod settings;
 pub mod supervisor;
 pub mod tray;
+pub mod update;
 
 use commands::AppState;
 use std::sync::{Arc, Mutex};
@@ -19,6 +20,7 @@ pub fn run() {
             tray::show_main_window(app);
         }))
         // Started by Windows at login: tray only, no settings window.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
             Some(vec!["--hidden"]),
@@ -32,6 +34,9 @@ pub fn run() {
             commands::restart_server,
             commands::describe_error,
             commands::get_health,
+            update::app_version,
+            update::check_update,
+            update::install_update,
         ])
         .on_window_event(|window, event| {
             // Closing the settings window only hides it; Quit is the way out.

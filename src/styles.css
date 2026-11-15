@@ -88,4 +88,9 @@ button:disabled { opacity: 0.55; cursor: default; }
 #save-msg { overflow-wrap: anywhere; flex: 1; }
 #save-msg.err { color: var(--bad-fg); }
 #save-msg.okmsg { color: var(--ok-fg); }
+.updates { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+#version { color: var(--muted); font-size: 12px; }
+#update-msg { flex: 1 1 100%; font-size: 13px; overflow-wrap: anywhere; }
+#update-msg.err { color: var(--bad-fg); }
+#update-msg.okmsg { color: var(--ok-fg); }
 [hidden] { display: none !important; }

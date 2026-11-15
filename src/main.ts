@@ -173,7 +173,61 @@ async function save(ev: Event) {
   }
 }
 
+interface UpdateInfo {
+  version: string;
+  notes: string | null;
+}
+
+const updateMsg = $("update-msg");
+const checkBtn = $<HTMLButtonElement>("check-update");
+const installBtn = $<HTMLButtonElement>("install-update");
+
+function say(msg: string, cls = "") {
+  updateMsg.className = cls;
+  updateMsg.textContent = msg;
+}
+
+async function checkUpdate(manual: boolean) {
+  checkBtn.disabled = true;
+  if (manual) say("Checking…");
+  try {
+    const u = await invoke<UpdateInfo | null>("check_update");
+    if (u) {
+      installBtn.hidden = false;
+      say(`Version ${u.version} is available.`, "okmsg");
+    } else {
+      installBtn.hidden = true;
+      if (manual) say("You're up to date.", "okmsg");
+    }
+  } catch (e) {
+    if (manual) say(text(e), "err");
+  } finally {
+    checkBtn.disabled = false;
+  }
+}
+
+async function installUpdate() {
+  installBtn.disabled = true;
+  checkBtn.disabled = true;
+  say("Downloading and installing… Castaway will restart.");
+  try {
+    await invoke("install_update");
+  } catch (e) {
+    say(text(e), "err");
+    installBtn.disabled = false;
+    checkBtn.disabled = false;
+  }
+}
+
 async function init() {
+  checkBtn.addEventListener("click", () => void checkUpdate(true));
+  installBtn.addEventListener("click", () => void installUpdate());
+  try {
+    $("version").textContent = `Version ${await invoke<string>("app_version")}`;
+  } catch {
+    // Version label is cosmetic.
+  }
+  void checkUpdate(false);
   $("form").addEventListener("submit", save);
   pinRadios().forEach((r) => r.addEventListener("change", updatePinInput));
   $("recheck").addEventListener("click", () => void loadHealth(true));
