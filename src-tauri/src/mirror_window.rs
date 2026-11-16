@@ -170,6 +170,17 @@ pub fn spawn() {
     });
 }
 
+/// How long a mirror window must exist before Alt+Enter is sent to it.
+pub const FULLSCREEN_DELAY: Duration = Duration::from_millis(1000);
+
+/// lParam for WM_SYSKEYDOWN of Enter: repeat count 1, scan code 0x1C, Alt context bit (29).
+pub const ALT_ENTER_LPARAM: isize = 0x2000_0000 | (0x1C << 16) | 1;
+
+/// True only when fullscreen is wanted, not yet sent, and the window is old enough.
+pub fn should_go_fullscreen(wants: bool, already_sent: bool, age: Duration) -> bool {
+    wants && !already_sent && age >= FULLSCREEN_DELAY
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -199,5 +210,22 @@ mod tests {
         assert!(!is_uxplay_image(r"C:\Windows\explorer.exe"));
         assert!(!is_uxplay_image(r"C:\X\uxplay.exe.bak"));
         assert!(!is_uxplay_image(""));
+    }
+
+    #[test]
+    fn fullscreen_only_when_wanted_unsent_and_old_enough() {
+        let old = Duration::from_millis(1000);
+        assert!(!should_go_fullscreen(false, false, old));
+        assert!(!should_go_fullscreen(true, true, old));
+        assert!(!should_go_fullscreen(true, false, Duration::from_millis(999)));
+        assert!(should_go_fullscreen(true, false, old));
+    }
+
+    #[test]
+    fn alt_enter_lparam_has_alt_bit_scancode_and_repeat() {
+        let l = ALT_ENTER_LPARAM as usize;
+        assert_eq!(l & 0xFFFF, 1, "repeat count");
+        assert_eq!((l >> 16) & 0xFF, 0x1C, "scan code");
+        assert_eq!((l >> 29) & 1, 1, "alt context bit");
     }
 }
