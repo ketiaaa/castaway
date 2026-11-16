@@ -3,7 +3,7 @@
   Writes latest.json, the file Castaway's in-app updater reads from the latest GitHub release.
 .EXAMPLE
   scripts\make-update-manifest.ps1 -Version 0.1.2 -Notes "Fixes X" -OutDir C:\temp\rel
-  Run after `npm run tauri build` with the updater key set (see docs/releasing.md).
+  Run after `npm run tauri build` with the updater key set.
 #>
 param(
   [Parameter(Mandatory)] [string] $Version,

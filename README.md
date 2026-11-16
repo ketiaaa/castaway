@@ -50,7 +50,7 @@ cd src-tauri; cargo test; cd ..
 npm run tauri build           # installer in src-tauri\target\release\bundle\nsis
 ```
 
-The `resources\uxplay` bundle is built locally and is not stored in git. See [docs/releasing.md](docs/releasing.md) for how releases are signed and published, and [docs/verification.md](docs/verification.md) for the manual test checklist.
+The `resources\uxplay` bundle is built locally and is not stored in git. It is built with `scripts/build-uxplay.ps1`.
 
 ## Licence and credits
 
