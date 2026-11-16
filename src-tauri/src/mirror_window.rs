@@ -15,13 +15,14 @@ use windows_sys::Win32::System::Threading::{
     OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    KEYEVENTF_KEYUP, VK_MENU, VK_RETURN, keybd_event,
+    INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, SendInput, VK_MENU, VK_RETURN,
+    keybd_event,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     BringWindowToTop, CreateIconFromResourceEx, EnumWindows, GWL_STYLE, GetClassNameW,
-    GetWindowLongW, GetWindowTextW, GetWindowThreadProcessId, ICON_BIG, ICON_SMALL, IsIconic,
-    IsWindow, IsWindowVisible, LR_DEFAULTCOLOR, PostMessageW, SW_RESTORE, SendMessageW,
-    SetForegroundWindow, SetWindowTextW, ShowWindow, WM_SETICON, WM_SYSKEYDOWN, WM_SYSKEYUP,
+    GetForegroundWindow, GetWindowLongW, GetWindowTextW, GetWindowThreadProcessId, ICON_BIG, ICON_SMALL, IsIconic,
+    IsWindow, IsWindowVisible, LR_DEFAULTCOLOR, SW_RESTORE, SendMessageW,
+    SetForegroundWindow, SetWindowTextW, ShowWindow, WM_SETICON,
 };
 
 pub const TITLE: &str = "Castaway";
@@ -167,15 +168,30 @@ fn raise(hwnd: HWND) {
     }
 }
 
-/// Post Alt+Enter to the window, which toggles the D3D video sink fullscreen.
-/// If a posted message does not toggle the sink on the device, switch to
-/// `SendInput` (Alt down, Enter down, Enter up, Alt up) instead.
-fn send_alt_enter(hwnd: HWND) {
-    let wparam = VK_RETURN as usize;
-    // SAFETY: PostMessageW only queues a message; failure is ignored.
+/// Press Alt+Enter with real input, which toggles the D3D video sink
+/// fullscreen. A message posted to the window was not taken by the sink on the
+/// device, so this uses `SendInput`. It only sends while `hwnd` is the
+/// foreground window (the keys go to whatever has focus), and returns whether
+/// it sent. Alt-up is last in the same call so Alt cannot stay down.
+fn send_alt_enter(hwnd: HWND) -> bool {
+    let key = |vk: u16, flags: u32| INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 {
+            ki: KEYBDINPUT { wVk: vk, wScan: 0, dwFlags: flags, time: 0, dwExtraInfo: 0 },
+        },
+    };
+    let inputs = [
+        key(VK_MENU, 0),
+        key(VK_RETURN, 0),
+        key(VK_RETURN, KEYEVENTF_KEYUP),
+        key(VK_MENU, KEYEVENTF_KEYUP),
+    ];
+    // SAFETY: plain queries and one SendInput call over a live array.
     unsafe {
-        PostMessageW(hwnd, WM_SYSKEYDOWN, wparam, ALT_ENTER_LPARAM);
-        PostMessageW(hwnd, WM_SYSKEYUP, wparam, ALT_ENTER_LPARAM | 0xC000_0000);
+        if GetForegroundWindow() != hwnd {
+            return false;
+        }
+        SendInput(inputs.len() as u32, inputs.as_ptr(), std::mem::size_of::<INPUT>() as i32) == inputs.len() as u32
     }
 }
 
@@ -228,8 +244,13 @@ pub fn spawn(wants_fullscreen: impl Fn() -> bool + Send + 'static) {
                 // taken for windows that have not been sent yet.
                 let age = t.first_seen.elapsed();
                 if !t.sent && age >= FULLSCREEN_DELAY && should_go_fullscreen(wants_fullscreen(), t.sent, age) {
-                    send_alt_enter(hwnd);
-                    t.sent = true;
+                    // The key only works while the window has focus: bring it
+                    // forward again and retry on later ticks, for about 5 s.
+                    if send_alt_enter(hwnd) || age >= FULLSCREEN_DELAY + FULLSCREEN_RETRY {
+                        t.sent = true;
+                    } else {
+                        raise(hwnd);
+                    }
                 }
             }
             thread::sleep(Duration::from_millis(500));
@@ -240,8 +261,8 @@ pub fn spawn(wants_fullscreen: impl Fn() -> bool + Send + 'static) {
 /// How long a mirror window must exist before Alt+Enter is sent to it.
 pub const FULLSCREEN_DELAY: Duration = Duration::from_millis(1000);
 
-/// lParam for WM_SYSKEYDOWN of Enter: repeat count 1, scan code 0x1C, Alt context bit (29).
-pub const ALT_ENTER_LPARAM: isize = 0x2000_0000 | (0x1C << 16) | 1;
+/// How long Castaway keeps retrying Alt+Enter while the window lacks focus.
+pub const FULLSCREEN_RETRY: Duration = Duration::from_secs(5);
 
 /// A tracked window is kept while it is alive and still owned by the process
 /// seen at first sighting (not while it is a candidate: fullscreen drops the caption).
@@ -303,13 +324,5 @@ mod tests {
         // Handle reused by another process: forgotten.
         assert!(!still_tracked(true, false));
         assert!(!still_tracked(false, false));
-    }
-
-    #[test]
-    fn alt_enter_lparam_has_alt_bit_scancode_and_repeat() {
-        let l = ALT_ENTER_LPARAM as usize;
-        assert_eq!(l & 0xFFFF, 1, "repeat count");
-        assert_eq!((l >> 16) & 0xFF, 0x1C, "scan code");
-        assert_eq!((l >> 29) & 1, 1, "alt context bit");
     }
 }
