@@ -442,7 +442,7 @@ dependencies = [
 
 [[package]]
 name = "castaway"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "castaway",
  "serde",
@@ -453,6 +453,7 @@ dependencies = [
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
  "win32job",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

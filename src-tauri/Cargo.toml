@@ -1,6 +1,6 @@
 [package]
 name = "castaway"
-version = "0.1.6"
+version = "0.1.7"
 description = "Castaway: Windows tray app wrapping UxPlay"
 authors = ["Castaway contributors"]
 license = "GPL-3.0-or-later"
@@ -40,6 +40,12 @@ win32job = "2.1.0"
 tauri-plugin-autostart = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Dwm",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+] }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

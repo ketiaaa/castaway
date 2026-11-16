@@ -1,3 +1,5 @@
+<p align="center"><img src="branding/logo.svg" alt="Castaway logo" width="112"></p>
+
 # Castaway
 
 Turn a Windows PC into an AirPlay receiver. Mirror an iPhone, iPad or Mac screen (video and audio) to a window on your PC.
@@ -23,6 +25,7 @@ Requirements: Windows 10 or 11 (x64), and the PC and the Apple device on the sam
 
 - Tray icon with Start, Stop and Restart, plus a status window (Ready, Connected to a device, or what is wrong).
 - Settings: device name, resolution, frame rate, fullscreen, video and audio output, fixed PIN, remembering trusted devices, fixed port, start with Windows, and a **Low latency** mode.
+- The mirror window carries the Castaway title, icon and a dark title bar.
 - Restarts the streaming engine automatically if it crashes.
 - Checks for problems and explains them: firewall rule, Public network profile, ports already in use, missing components.
 - Updates itself. Castaway checks GitHub on start (and from the **Check for updates** button) and only installs updates signed with the project's key.

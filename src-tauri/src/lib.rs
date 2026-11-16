@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod health;
 pub mod log_parser;
+pub mod mirror_window;
 pub mod paths;
 pub mod settings;
 pub mod supervisor;
@@ -58,6 +59,7 @@ pub fn run() {
             };
 
             tray::build(&handle, &supervisor::Status::Stopped)?;
+            mirror_window::spawn();
 
             // The callback only emits; it must not hold the Supervisor.
             let cb_handle = handle.clone();
