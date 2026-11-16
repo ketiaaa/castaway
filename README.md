@@ -8,6 +8,8 @@ Castaway is a small tray app (Tauri 2, Rust, plain TypeScript UI) wrapped around
 
 ![Castaway window showing "Ready for a device" and the settings](docs/images/window.png)
 
+<p align="center"><img src="docs/images/demo.gif" alt="An iPhone screen mirrored to a Windows PC in the Castaway window" width="240"></p>
+
 This is a personal portfolio project. It is free software, provided as is.
 
 ## Install
