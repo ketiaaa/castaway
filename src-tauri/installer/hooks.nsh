@@ -16,3 +16,11 @@
   nsExec::ExecToLog '"$SYSDIR\netsh.exe" advfirewall firewall delete rule name="Castaway (UxPlay)"'
   Pop $0
 !macroend
+
+!macro NSIS_HOOK_POSTUNINSTALL
+  ; "Start with Windows" is stored as a Run value; remove it so no broken
+  ; startup entry is left behind. Skipped during updates, which keep it.
+  ${If} $UpdateMode <> 1
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCTNAME}"
+  ${EndIf}
+!macroend

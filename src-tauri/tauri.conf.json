@@ -48,6 +48,10 @@
         "installMode": "perMachine",
         "installerIcon": "icons/icon.ico",
         "headerImage": "installer/header.bmp",
+        "uninstallerIcon": "icons/icon.ico",
+        "uninstallerHeaderImage": "installer/header.bmp",
+        "languages": ["English"],
+        "customLanguageFiles": { "English": "installer/English.nsh" },
         "sidebarImage": "installer/sidebar.bmp",
         "installerHooks": "installer/hooks.nsh"
       }
