@@ -4,6 +4,8 @@ Turn a Windows PC into an AirPlay receiver. Mirror an iPhone, iPad or Mac screen
 
 Castaway is a small tray app (Tauri 2, Rust, plain TypeScript UI) wrapped around [UxPlay](https://github.com/FDH2/UxPlay), which does the actual AirPlay work. Castaway adds what UxPlay lacks on Windows: an installer, a tray icon, a settings window, automatic restarts, and plain-language explanations when something stops it from working.
 
+![Castaway window showing "Ready for a device" and the settings](docs/images/window.png)
+
 This is a personal portfolio project. It is free software, provided as is.
 
 ## Install
