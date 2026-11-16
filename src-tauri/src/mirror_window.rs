@@ -3,7 +3,7 @@
 //! background thread finds it and restyles it from outside. Purely cosmetic:
 //! every Windows call may fail and the window then just keeps its default look.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::ffi::c_void;
 use std::path::Path;
 use std::sync::OnceLock;
@@ -20,7 +20,7 @@ use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     BringWindowToTop, CreateIconFromResourceEx, EnumWindows, GWL_STYLE, GetClassNameW,
     GetWindowLongW, GetWindowTextW, GetWindowThreadProcessId, ICON_BIG, ICON_SMALL, IsIconic,
-    IsWindowVisible, LR_DEFAULTCOLOR, PostMessageW, SW_RESTORE, SendMessageW,
+    IsWindow, IsWindowVisible, LR_DEFAULTCOLOR, PostMessageW, SW_RESTORE, SendMessageW,
     SetForegroundWindow, SetWindowTextW, ShowWindow, WM_SETICON, WM_SYSKEYDOWN, WM_SYSKEYUP,
 };
 
@@ -179,32 +179,57 @@ fn send_alt_enter(hwnd: HWND) {
     }
 }
 
+/// Per-window state kept from first sighting until the window is gone.
+struct Tracked {
+    first_seen: Instant,
+    pid: u32,
+    sent: bool,
+}
+
 /// Start the watcher thread. It runs until the process exits.
 /// `wants_fullscreen` is asked on every tick, so setting changes apply live.
 pub fn spawn(wants_fullscreen: impl Fn() -> bool + Send + 'static) {
     thread::spawn(move || {
-        let mut first_seen: HashMap<isize, Instant> = HashMap::new();
-        let mut sent: HashSet<isize> = HashSet::new();
+        // Windows are tracked for as long as they are alive, not while they are
+        // candidates: fullscreen drops WS_CAPTION, and a window that merely lost
+        // its caption must not look new when the caption comes back.
+        let mut tracked: HashMap<isize, Tracked> = HashMap::new();
         loop {
-            let now = candidates();
-            first_seen.retain(|h, _| now.contains(h));
-            sent.retain(|h| now.contains(h));
-            for h in now {
+            tracked.retain(|&h, t| {
+                let hwnd = h as HWND;
+                let mut pid = 0u32;
+                // SAFETY: plain queries on a handle that may be stale; a stale
+                // handle makes them fail, which `still_tracked` treats as gone.
+                let alive = unsafe {
+                    let alive = IsWindow(hwnd) != 0;
+                    if alive {
+                        GetWindowThreadProcessId(hwnd, &mut pid);
+                    }
+                    alive
+                };
+                still_tracked(alive, pid == t.pid)
+            });
+            for h in candidates() {
                 let hwnd = h as HWND;
                 if window_title(hwnd) != TITLE {
                     let t = wide(TITLE);
                     // SAFETY: `t` is NUL-terminated and outlives the call.
                     unsafe { SetWindowTextW(hwnd, t.as_ptr()) };
                 }
-                if !first_seen.contains_key(&h) {
-                    first_seen.insert(h, Instant::now());
+                let t = tracked.entry(h).or_insert_with(|| {
+                    let mut pid = 0u32;
+                    // SAFETY: plain query with a valid out pointer.
+                    unsafe { GetWindowThreadProcessId(hwnd, &mut pid) };
                     style_window(hwnd);
                     raise(hwnd);
-                }
-                let age = first_seen[&h].elapsed();
-                if should_go_fullscreen(wants_fullscreen(), sent.contains(&h), age) {
+                    Tracked { first_seen: Instant::now(), pid, sent: false }
+                });
+                // `sent` and age are checked first so the settings lock is only
+                // taken for windows that have not been sent yet.
+                let age = t.first_seen.elapsed();
+                if !t.sent && age >= FULLSCREEN_DELAY && should_go_fullscreen(wants_fullscreen(), t.sent, age) {
                     send_alt_enter(hwnd);
-                    sent.insert(h);
+                    t.sent = true;
                 }
             }
             thread::sleep(Duration::from_millis(500));
@@ -217,6 +242,12 @@ pub const FULLSCREEN_DELAY: Duration = Duration::from_millis(1000);
 
 /// lParam for WM_SYSKEYDOWN of Enter: repeat count 1, scan code 0x1C, Alt context bit (29).
 pub const ALT_ENTER_LPARAM: isize = 0x2000_0000 | (0x1C << 16) | 1;
+
+/// A tracked window is kept while it is alive and still owned by the process
+/// seen at first sighting (not while it is a candidate: fullscreen drops the caption).
+pub fn still_tracked(alive: bool, same_pid: bool) -> bool {
+    alive && same_pid
+}
 
 /// True only when fullscreen is wanted, not yet sent, and the window is old enough.
 pub fn should_go_fullscreen(wants: bool, already_sent: bool, age: Duration) -> bool {
@@ -261,6 +292,17 @@ mod tests {
         assert!(!should_go_fullscreen(true, true, old));
         assert!(!should_go_fullscreen(true, false, Duration::from_millis(999)));
         assert!(should_go_fullscreen(true, false, old));
+    }
+
+    #[test]
+    fn window_stays_tracked_only_while_alive_with_same_pid() {
+        // Alive, same owner: tracked even if it lost its caption (fullscreen).
+        assert!(still_tracked(true, true));
+        // Closed window: forgotten.
+        assert!(!still_tracked(false, true));
+        // Handle reused by another process: forgotten.
+        assert!(!still_tracked(true, false));
+        assert!(!still_tracked(false, false));
     }
 
     #[test]
