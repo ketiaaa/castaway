@@ -172,9 +172,8 @@ pub fn to_args(s: &Settings) -> Vec<String> {
         push("-vsync");
         push("no");
     }
-    if s.fullscreen {
-        push("-fs");
-    }
+    // Fullscreen is applied by Castaway via Alt+Enter once the window exists
+    // (see mirror_window.rs), because UxPlay's `-fs` disables the Alt+Enter toggle.
     a
 }
 
@@ -402,15 +401,22 @@ mod tests {
         assert_eq!(a[i + 1], "no");
     }
     #[test]
-    fn fullscreen_registry_and_always_no_hostname_flags() {
+    fn registry_and_always_no_hostname_flags() {
         let mut x = s();
-        x.fullscreen = true;
         x.use_registry = true;
         x.pin = PinMode::Fixed("1234".into());
         let a = to_args(&x);
-        for f in ["-fs", "-nh", "-reg"] {
+        for f in ["-nh", "-reg"] {
             assert!(a.contains(&f.to_string()), "{f}");
         }
+    }
+    #[test]
+    fn fullscreen_setting_never_adds_the_fs_flag() {
+        let mut x = s();
+        x.fullscreen = true;
+        assert!(!to_args(&x).contains(&"-fs".to_string()));
+        x.fullscreen = false;
+        assert!(!to_args(&x).contains(&"-fs".to_string()));
     }
     #[test]
     fn load_missing_file_returns_default() {
