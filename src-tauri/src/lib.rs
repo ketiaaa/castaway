@@ -59,7 +59,13 @@ pub fn run() {
             };
 
             tray::build(&handle, &supervisor::Status::Stopped)?;
-            mirror_window::spawn();
+            let fs_handle = handle.clone();
+            mirror_window::spawn(move || {
+                // AppState is managed after this spawn, so look it up each time.
+                fs_handle.try_state::<AppState>().is_some_and(|state| {
+                    state.settings.lock().unwrap_or_else(|e| e.into_inner()).fullscreen
+                })
+            });
 
             // The callback only emits; it must not hold the Supervisor.
             let cb_handle = handle.clone();

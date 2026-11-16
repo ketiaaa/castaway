@@ -3,21 +3,25 @@
 //! background thread finds it and restyles it from outside. Purely cosmetic:
 //! every Windows call may fail and the window then just keeps its default look.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::ffi::c_void;
 use std::path::Path;
 use std::sync::OnceLock;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use windows_sys::Win32::Foundation::{CloseHandle, HWND, LPARAM};
 use windows_sys::Win32::Graphics::Dwm::DwmSetWindowAttribute;
 use windows_sys::Win32::System::Threading::{
     OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+    KEYEVENTF_KEYUP, VK_MENU, VK_RETURN, keybd_event,
+};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CreateIconFromResourceEx, EnumWindows, GWL_STYLE, GetClassNameW, GetWindowLongW,
-    GetWindowTextW, GetWindowThreadProcessId, ICON_BIG, ICON_SMALL, IsWindowVisible,
-    LR_DEFAULTCOLOR, SendMessageW, SetWindowTextW, WM_SETICON,
+    BringWindowToTop, CreateIconFromResourceEx, EnumWindows, GWL_STYLE, GetClassNameW,
+    GetWindowLongW, GetWindowTextW, GetWindowThreadProcessId, ICON_BIG, ICON_SMALL, IsIconic,
+    IsWindowVisible, LR_DEFAULTCOLOR, PostMessageW, SW_RESTORE, SendMessageW,
+    SetForegroundWindow, SetWindowTextW, ShowWindow, WM_SETICON, WM_SYSKEYDOWN, WM_SYSKEYUP,
 };
 
 pub const TITLE: &str = "Castaway";
@@ -147,13 +151,44 @@ fn style_window(hwnd: HWND) {
     dwm_set(hwnd, DWMWA_TEXT_COLOR, TEXT_COLOR);
 }
 
+/// Bring the window to the front, restoring it if minimised. A tap of Alt
+/// lets SetForegroundWindow succeed past the foreground lock. Best effort.
+fn raise(hwnd: HWND) {
+    // SAFETY: plain window calls on a handle from EnumWindows; a stale handle
+    // just makes them fail, and every result is ignored on purpose.
+    unsafe {
+        if IsIconic(hwnd) != 0 {
+            ShowWindow(hwnd, SW_RESTORE);
+        }
+        keybd_event(VK_MENU as u8, 0, 0, 0);
+        keybd_event(VK_MENU as u8, 0, KEYEVENTF_KEYUP, 0);
+        BringWindowToTop(hwnd);
+        SetForegroundWindow(hwnd);
+    }
+}
+
+/// Post Alt+Enter to the window, which toggles the D3D video sink fullscreen.
+/// If a posted message does not toggle the sink on the device, switch to
+/// `SendInput` (Alt down, Enter down, Enter up, Alt up) instead.
+fn send_alt_enter(hwnd: HWND) {
+    let wparam = VK_RETURN as usize;
+    // SAFETY: PostMessageW only queues a message; failure is ignored.
+    unsafe {
+        PostMessageW(hwnd, WM_SYSKEYDOWN, wparam, ALT_ENTER_LPARAM);
+        PostMessageW(hwnd, WM_SYSKEYUP, wparam, ALT_ENTER_LPARAM | 0xC000_0000);
+    }
+}
+
 /// Start the watcher thread. It runs until the process exits.
-pub fn spawn() {
-    thread::spawn(|| {
-        let mut styled: HashSet<isize> = HashSet::new();
+/// `wants_fullscreen` is asked on every tick, so setting changes apply live.
+pub fn spawn(wants_fullscreen: impl Fn() -> bool + Send + 'static) {
+    thread::spawn(move || {
+        let mut first_seen: HashMap<isize, Instant> = HashMap::new();
+        let mut sent: HashSet<isize> = HashSet::new();
         loop {
             let now = candidates();
-            styled.retain(|h| now.contains(h));
+            first_seen.retain(|h, _| now.contains(h));
+            sent.retain(|h| now.contains(h));
             for h in now {
                 let hwnd = h as HWND;
                 if window_title(hwnd) != TITLE {
@@ -161,8 +196,15 @@ pub fn spawn() {
                     // SAFETY: `t` is NUL-terminated and outlives the call.
                     unsafe { SetWindowTextW(hwnd, t.as_ptr()) };
                 }
-                if styled.insert(h) {
+                if !first_seen.contains_key(&h) {
+                    first_seen.insert(h, Instant::now());
                     style_window(hwnd);
+                    raise(hwnd);
+                }
+                let age = first_seen[&h].elapsed();
+                if should_go_fullscreen(wants_fullscreen(), sent.contains(&h), age) {
+                    send_alt_enter(hwnd);
+                    sent.insert(h);
                 }
             }
             thread::sleep(Duration::from_millis(500));
