@@ -8,11 +8,9 @@ use std::thread::sleep;
 use std::time::Duration;
 
 const LISTENING: &str = "Initialized server socket(s)";
-const ADVERTISED: &str = "register_dnssd: advertised AirPlay service with \"Features\" code = 0x527FFEE6";
 
 fn ready() {
     println!("{LISTENING}");
-    println!("{ADVERTISED}");
 }
 const CONNECT: &str =
     "connection request from Test iPhone (iPhone14,2) with deviceID = AA:BB:CC:DD:EE:FF";

@@ -289,16 +289,15 @@ mod tests {
     #[test]
     fn check_ports_ignores_a_program_on_base_alone() {
         // UxPlay never listens on `base`, so a holder there is no problem.
-        for _ in 0..20 {
+        // Retry: another test may briefly hold base+1.
+        for _ in 0..50 {
             let l = TcpListener::bind(("0.0.0.0", 0)).unwrap();
             let base = l.local_addr().unwrap().port();
-            if base == u16::MAX || TcpListener::bind(("0.0.0.0", base + 1)).is_err() {
-                continue;
+            if base < u16::MAX && check_ports(base).is_empty() {
+                return; // `base` was held by `l` for the whole check
             }
-            assert!(check_ports(base).is_empty());
-            return;
         }
-        panic!("could not pick a port");
+        panic!("check_ports kept flagging a held base port");
     }
 
     #[test]

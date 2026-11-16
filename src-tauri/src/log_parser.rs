@@ -3,8 +3,6 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum UxEvent {
     Listening,
-    /// The service was registered over mDNS (visible to other devices).
-    Advertised,
     ClientConnected { device: Option<String> },
     ClientDisconnected,
     Error(String),
@@ -42,11 +40,6 @@ pub fn parse_line(line: &str) -> Option<UxEvent> {
     // httpd prints this once bind+listen succeeded (absent in port_in_use.log).
     if t == "Initialized server socket(s)" {
         return Some(UxEvent::Listening);
-    }
-
-    // mDNS registration done: this is what makes the PC visible to the phone.
-    if t.starts_with("register_dnssd: advertised ") {
-        return Some(UxEvent::Advertised);
     }
 
     // `connection request from <name> (<model>) with deviceID = <id>`
@@ -91,15 +84,8 @@ mod tests {
     }
 
     #[test]
-    fn startup_yields_listening_then_advertised() {
-        assert_eq!(events(STARTUP), vec![UxEvent::Listening, UxEvent::Advertised]);
-    }
-
-    #[test]
-    fn failed_bind_still_advertises_but_never_listens() {
-        let ev = events(PORT_IN_USE);
-        assert!(ev.contains(&UxEvent::Advertised));
-        assert!(!ev.contains(&UxEvent::Listening));
+    fn startup_yields_exactly_one_listening() {
+        assert_eq!(events(STARTUP), vec![UxEvent::Listening]);
     }
 
     #[test]
@@ -118,10 +104,9 @@ mod tests {
         let ev = events(PORT_IN_USE);
         assert_eq!(
             ev,
-            vec![
-                UxEvent::Error("*** ERROR: Error initialising socket 10013".to_string()),
-                UxEvent::Advertised
-            ]
+            vec![UxEvent::Error(
+                "*** ERROR: Error initialising socket 10013".to_string()
+            )]
         );
     }
 
@@ -164,6 +149,7 @@ mod tests {
             "UxPlay 1.74: An Open-Source AirPlay mirroring and audio-streaming server.",
             "using system MAC address 0a:00:27:00:00:0b",
             "GStreamer h264 bus message pipeline2 state-changed NULL READY",
+            "register_dnssd: advertised AirPlay service with \"Features\" code = 0x527FFEE6",
             "Accepted IPv4 client on socket 1234, port 7001",
             "Client identified as User-Agent: AirPlay/690.7.1",
         ] {
