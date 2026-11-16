@@ -178,23 +178,42 @@ pub fn to_args(s: &Settings) -> Vec<String> {
     a
 }
 
-/// Never fails: a missing, corrupt or invalid file yields defaults (values
-/// from the file go straight into UxPlay's argv and GStreamer pipelines, so
-/// they must pass the same validation as a save).
+/// Never fails: a missing or corrupt file yields defaults. Values from the
+/// file go straight into UxPlay's argv and GStreamer pipelines, so each field
+/// must pass the same validation as a save; a field that doesn't is replaced
+/// by its default while the other fields are kept.
 pub fn load(path: &Path) -> Settings {
-    std::fs::read_to_string(path)
+    let Some(serde_json::Value::Object(file)) = std::fs::read_to_string(path)
         .ok()
-        .and_then(|t| serde_json::from_str::<Settings>(&t).ok())
-        .filter(|s| s.validate().is_ok())
-        .unwrap_or_default()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+    else {
+        return Settings::default();
+    };
+    let mut current = Settings::default();
+    for (key, value) in file {
+        let Ok(serde_json::Value::Object(mut fields)) = serde_json::to_value(&current) else {
+            continue;
+        };
+        fields.insert(key, value);
+        if let Ok(candidate) = serde_json::from_value::<Settings>(serde_json::Value::Object(fields)) {
+            if candidate.validate().is_ok() {
+                current = candidate;
+            }
+        }
+    }
+    current
 }
 
+/// Writes to a temporary file next to `path`, then renames it over `path`, so
+/// a crash mid-write never leaves a half-written settings file.
 pub fn save(path: &Path, s: &Settings) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
     let json = serde_json::to_string_pretty(s).map_err(std::io::Error::other)?;
-    std::fs::write(path, json)
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, json)?;
+    std::fs::rename(&tmp, path)
 }
 
 pub fn settings_path_in(dir: &Path) -> PathBuf {
@@ -333,6 +352,28 @@ mod tests {
             std::fs::write(&p, json).unwrap();
             assert_eq!(load(&p), s(), "{json}");
         }
+    }
+    #[test]
+    fn load_keeps_valid_fields_when_one_is_invalid() {
+        let d = tmp("perfield");
+        let p = d.join("settings.json");
+        std::fs::write(&p, r#"{"fps": 0, "fullscreen": true, "name": "José", "width": 1280}"#).unwrap();
+        let l = load(&p);
+        assert_eq!(l.fps, s().fps);
+        assert_eq!(l.name, s().name);
+        assert!(l.fullscreen);
+        assert_eq!(l.width, 1280);
+    }
+    #[test]
+    fn save_leaves_no_temp_file_and_overwrites() {
+        let d = tmp("atomic");
+        let p = settings_path_in(&d);
+        save(&p, &s()).unwrap();
+        let mut x = s();
+        x.fps = 45;
+        save(&p, &x).unwrap();
+        assert_eq!(load(&p).fps, 45);
+        assert!(!p.with_extension("json.tmp").exists());
     }
     #[test]
     fn fixed_pin_and_port_flags() {

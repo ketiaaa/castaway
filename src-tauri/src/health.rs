@@ -131,7 +131,7 @@ pub fn firewall_rule_exists(rule_name: &str) -> bool {
 }
 
 pub fn check_uxplay(path: &Path) -> Option<HealthIssue> {
-    if path.exists() {
+    if path.is_file() {
         None
     } else {
         Some(HealthIssue::UxplayMissing)
@@ -156,9 +156,19 @@ fn is_bind_failure(text: &str) -> bool {
 /// Extract a port written as "port <N>" in the text.
 fn port_from_text(text: &str) -> Option<u16> {
     let l = text.to_ascii_lowercase();
-    let idx = l.find("port ")? + "port ".len();
-    let digits: String = l[idx..].chars().take_while(char::is_ascii_digit).collect();
-    digits.parse().ok().filter(|p| *p != 0)
+    let mut from = 0;
+    while let Some(i) = l[from..].find("port ") {
+        let at = from + i;
+        let whole_word = l[..at].chars().next_back().is_none_or(|c| !c.is_alphanumeric());
+        if whole_word {
+            let digits: String = l[at + 5..].chars().take_while(char::is_ascii_digit).collect();
+            if let Some(p) = digits.parse().ok().filter(|p| *p != 0) {
+                return Some(p);
+            }
+        }
+        from = at + 5;
+    }
+    None
 }
 
 /// Map a UxPlay error line / `Status::Error` text to a health issue.
@@ -236,6 +246,19 @@ mod tests {
             }
         }
         panic!("no free port found");
+    }
+
+    #[test]
+    fn port_from_text_needs_a_whole_word() {
+        assert_eq!(port_from_text("error on port 7001"), Some(7001));
+        assert_eq!(port_from_text("Port 7001 busy"), Some(7001));
+        assert_eq!(port_from_text("no support 7001 here"), None);
+        assert_eq!(port_from_text("report 80 then port 7002"), Some(7002));
+    }
+
+    #[test]
+    fn check_uxplay_needs_a_file_not_a_folder() {
+        assert_eq!(check_uxplay(&std::env::temp_dir()), Some(HealthIssue::UxplayMissing));
     }
 
     #[test]
